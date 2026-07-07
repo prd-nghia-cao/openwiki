@@ -3,6 +3,7 @@ import {
   CREDENTIAL_DIAGNOSTIC_ENV_KEYS,
   DEBUG_ENV_KEYS,
   formatEnv,
+  getHeadersWarnings,
   MANAGED_ENV_KEYS,
   parseEnv,
 } from "../src/env.ts";
@@ -174,5 +175,22 @@ describe("OPENAI_COMPATIBLE_HEADERS registration", () => {
       OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
     );
     expect(DEBUG_ENV_KEYS).toContain(OPENAI_COMPATIBLE_HEADERS_ENV_KEY);
+  });
+});
+
+describe("getHeadersWarnings", () => {
+  test("returns no warnings for a valid headers JSON object", () => {
+    expect(getHeadersWarnings('{"X-Api-Key":"abc"}')).toEqual([]);
+  });
+
+  test("warns for invalid JSON", () => {
+    expect(getHeadersWarnings("{not json}")).toEqual(["invalid headers JSON"]);
+  });
+
+  test("warns when the value is not an object of strings", () => {
+    expect(getHeadersWarnings('["a","b"]')).toEqual(["invalid headers JSON"]);
+    expect(getHeadersWarnings('{"X-Count":1}')).toEqual([
+      "invalid headers JSON",
+    ]);
   });
 });

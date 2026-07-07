@@ -14,6 +14,7 @@ import {
   GOOGLE_APPLICATION_CREDENTIALS_ENV_KEY,
   GOOGLE_CLOUD_LOCATION_ENV_KEY,
   GOOGLE_CLOUD_PROJECT_ENV_KEY,
+  isValidHeadersRecord,
   isValidModelId,
   NEBIUS_API_KEY_ENV_KEY,
   normalizeProvider,
@@ -355,7 +356,9 @@ function createCredentialDiagnostic(
               ? getProviderBaseUrlWarnings("openai-compatible", value)
               : key === ANTHROPIC_BASE_URL_ENV_KEY
                 ? getProviderBaseUrlWarnings("anthropic", value)
-                : getCredentialWarnings(value),
+                : key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY
+                  ? getHeadersWarnings(value)
+                  : getCredentialWarnings(value),
   };
 }
 
@@ -441,6 +444,16 @@ function getRetryAttemptsWarnings(value: string): string[] {
     return [];
   } catch {
     return ["invalid retry attempts"];
+  }
+}
+
+export function getHeadersWarnings(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+
+    return isValidHeadersRecord(parsed) ? [] : ["invalid headers JSON"];
+  } catch {
+    return ["invalid headers JSON"];
   }
 }
 
