@@ -3331,12 +3331,50 @@ function getErrorDiagnostics(error: unknown): ErrorDiagnostic[] {
 
   if (debugMode) {
     addSafeObjectDiagnostics(diagnostics, error, "");
-    addSafeNestedDiagnostics(diagnostics, error, "cause");
+    addCauseChainDiagnostics(diagnostics, error);
     addSafeNestedDiagnostics(diagnostics, error, "error");
     addSafeNestedDiagnostics(diagnostics, error, "response");
   }
 
   return dedupeDiagnostics(diagnostics);
+}
+
+/**
+ * Walks the `cause` chain of an error, surfacing the name, message, and coded
+ * fields at each level. Network failures from the OpenAI client are wrapped
+ * several levels deep (e.g. `Connection error.` -> `fetch failed` ->
+ * `SELF_SIGNED_CERT_IN_CHAIN`), so a single-level walk hides the real cause.
+ */
+function addCauseChainDiagnostics(
+  diagnostics: ErrorDiagnostic[],
+  error: Record<string, unknown>,
+): void {
+  const seen = new Set<unknown>([error]);
+  let current: unknown = error.cause;
+  let depth = 1;
+
+  while (isRecord(current) && !seen.has(current) && depth <= 6) {
+    seen.add(current);
+    const prefix = depth === 1 ? "cause" : `cause${".cause".repeat(depth - 1)}`;
+
+    if (typeof current.name === "string") {
+      diagnostics.push({ label: `${prefix}.name`, value: current.name });
+    }
+
+    if (typeof current.message === "string") {
+      diagnostics.push({
+        label: `${prefix}.message`,
+        value: sanitizeDiagnosticText(current.message),
+      });
+    }
+
+    addSafeObjectDiagnostics(diagnostics, current, prefix);
+    addOpenRouterMetadataDiagnostics(diagnostics, current, prefix);
+    addAttachedDebugDiagnostics(diagnostics, current, prefix);
+
+    current = current.cause;
+    depth += 1;
+  }
 }
 
 function addSafeNestedDiagnostics(
