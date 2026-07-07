@@ -73,6 +73,7 @@ import {
   normalizeModelId,
   OPENAI_COMPATIBLE_BASE_URL_ENV_KEY,
   OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
+  OPENAI_COMPATIBLE_QUERY_ENV_KEY,
   OPENROUTER_API_KEY_ENV_KEY,
   OPENROUTER_BASE_URL,
   OPENWIKI_MODEL_ID_ENV_KEY,
@@ -86,6 +87,7 @@ import {
   resolveProviderBaseUrl,
   resolveProviderHeaders,
   resolveProviderLocation,
+  resolveProviderQuery,
   resolveProviderRegion,
   resolveProviderRetryAttempts,
   type OpenWikiProvider,
@@ -173,6 +175,10 @@ export async function runOpenWikiAgent(
         options,
         `provider.headers=${JSON.stringify(Object.keys(providerHeaders))}`,
       );
+    }
+    const providerQuery = resolveProviderQuery(provider);
+    if (providerQuery) {
+      emitDebug(options, `provider.query=${JSON.stringify(providerQuery)}`);
     }
 
     if (provider === "openai-chatgpt") {
@@ -752,11 +758,13 @@ export function createModel(
 
   const baseURL = resolveProviderBaseUrl(provider);
   const defaultHeaders = resolveProviderHeaders(provider);
+  const defaultQuery = resolveProviderQuery(provider);
   const configuration =
-    baseURL || defaultHeaders
+    baseURL || defaultHeaders || defaultQuery
       ? {
           ...(baseURL ? { baseURL } : {}),
           ...(defaultHeaders ? { defaultHeaders } : {}),
+          ...(defaultQuery ? { defaultQuery } : {}),
         }
       : undefined;
 
@@ -1679,6 +1687,7 @@ function formatDebugValue(key: string, value: string | undefined): string {
     key === OPENWIKI_MODEL_ID_ENV_KEY ||
     key === OPENWIKI_PROVIDER_ENV_KEY ||
     key === OPENWIKI_PROVIDER_RETRY_ATTEMPTS_ENV_KEY ||
+    key === OPENAI_COMPATIBLE_QUERY_ENV_KEY ||
     key === BEDROCK_AWS_REGION_ENV_KEY
   ) {
     return `set(value=${JSON.stringify(value)})`;
