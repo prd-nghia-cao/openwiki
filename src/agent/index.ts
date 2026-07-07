@@ -72,6 +72,7 @@ import {
   isValidModelId,
   normalizeModelId,
   OPENAI_COMPATIBLE_BASE_URL_ENV_KEY,
+  OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
   OPENROUTER_API_KEY_ENV_KEY,
   OPENROUTER_BASE_URL,
   OPENWIKI_MODEL_ID_ENV_KEY,
@@ -83,6 +84,7 @@ import {
   resolveConfiguredProvider,
   resolveOpenRouterProviderOnly,
   resolveProviderBaseUrl,
+  resolveProviderHeaders,
   resolveProviderLocation,
   resolveProviderRegion,
   resolveProviderRetryAttempts,
@@ -165,6 +167,13 @@ export async function runOpenWikiAgent(
     ensureProviderBaseUrl(provider);
     ensureProviderSecretKey(provider);
     ensureProviderRegion(provider);
+    const providerHeaders = resolveProviderHeaders(provider);
+    if (providerHeaders) {
+      emitDebug(
+        options,
+        `provider.headers=${JSON.stringify(Object.keys(providerHeaders))}`,
+      );
+    }
 
     if (provider === "openai-chatgpt") {
       // Refresh before the model is built, so `createModel` stays synchronous.
@@ -742,14 +751,18 @@ export function createModel(
   }
 
   const baseURL = resolveProviderBaseUrl(provider);
+  const defaultHeaders = resolveProviderHeaders(provider);
+  const configuration =
+    baseURL || defaultHeaders
+      ? {
+          ...(baseURL ? { baseURL } : {}),
+          ...(defaultHeaders ? { defaultHeaders } : {}),
+        }
+      : undefined;
 
   return new ChatOpenAI({
     apiKey: getProviderApiKey(provider),
-    configuration: baseURL
-      ? {
-          baseURL,
-        }
-      : undefined,
+    configuration,
     model: modelId,
     useResponsesApi: provider === "openai",
     ...retryOptions,
@@ -1655,6 +1668,10 @@ function formatDebugValue(key: string, value: string | undefined): string {
   }
 
   if (key.endsWith("_API_KEY")) {
+    return `set(length=${value.length})`;
+  }
+
+  if (key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY) {
     return `set(length=${value.length})`;
   }
 
