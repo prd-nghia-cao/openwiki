@@ -8,6 +8,7 @@ import {
   getProviderBaseUrlWarnings,
   getMissingProviderEnvKey,
   getProviderApiKeyEnvKey,
+  getProviderHeadersEnvKey,
   getProviderModelOptions,
   getProviderRegionEnvKey,
   getProviderSecretKeyEnvKey,
@@ -20,12 +21,14 @@ import {
   NEBIUS_BASE_URL,
   normalizeModelId,
   normalizeProvider,
+  OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
   providerRequiresApiKey,
   providerRequiresRegion,
   providerRequiresSecretKey,
   resolveConfiguredProvider,
   resolveOpenRouterProviderOnly,
   resolveProviderBaseUrl,
+  resolveProviderHeaders,
   resolveProviderLocation,
   resolveProviderRegion,
   resolveProviderRetryAttempts,
@@ -484,5 +487,80 @@ describe("isModelIdForOtherProvider", () => {
     expect(isModelIdForOtherProvider("  claude-opus-4-8  ", "openai")).toBe(
       true,
     );
+  });
+});
+
+describe("getProviderHeadersEnvKey", () => {
+  test("returns the headers key for openai-compatible", () => {
+    expect(getProviderHeadersEnvKey("openai-compatible")).toBe(
+      OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
+    );
+  });
+
+  test("returns undefined for providers without a headers key", () => {
+    expect(getProviderHeadersEnvKey("openrouter")).toBeUndefined();
+    expect(getProviderHeadersEnvKey("anthropic")).toBeUndefined();
+  });
+});
+
+describe("resolveProviderHeaders", () => {
+  test("returns undefined when the header env var is unset", () => {
+    expect(resolveProviderHeaders("openai-compatible", {})).toBeUndefined();
+  });
+
+  test("returns undefined when the value is whitespace only", () => {
+    expect(
+      resolveProviderHeaders("openai-compatible", {
+        OPENAI_COMPATIBLE_HEADERS: "   ",
+      }),
+    ).toBeUndefined();
+  });
+
+  test("returns undefined for providers without a headers key", () => {
+    expect(
+      resolveProviderHeaders("openrouter", {
+        OPENAI_COMPATIBLE_HEADERS: '{"X-Api-Key":"abc"}',
+      }),
+    ).toBeUndefined();
+  });
+
+  test("parses a valid JSON object of string values", () => {
+    expect(
+      resolveProviderHeaders("openai-compatible", {
+        OPENAI_COMPATIBLE_HEADERS: '{"X-Api-Key":"abc","X-Org":"acme"}',
+      }),
+    ).toEqual({ "X-Api-Key": "abc", "X-Org": "acme" });
+  });
+
+  test("throws on invalid JSON", () => {
+    expect(() =>
+      resolveProviderHeaders("openai-compatible", {
+        OPENAI_COMPATIBLE_HEADERS: "{not json}",
+      }),
+    ).toThrow(/OPENAI_COMPATIBLE_HEADERS/u);
+  });
+
+  test("throws when the value is a JSON array", () => {
+    expect(() =>
+      resolveProviderHeaders("openai-compatible", {
+        OPENAI_COMPATIBLE_HEADERS: '["X-Api-Key","abc"]',
+      }),
+    ).toThrow(/OPENAI_COMPATIBLE_HEADERS/u);
+  });
+
+  test("throws when a value is not a string", () => {
+    expect(() =>
+      resolveProviderHeaders("openai-compatible", {
+        OPENAI_COMPATIBLE_HEADERS: '{"X-Count":1}',
+      }),
+    ).toThrow(/OPENAI_COMPATIBLE_HEADERS/u);
+  });
+
+  test("throws when a value is a nested object", () => {
+    expect(() =>
+      resolveProviderHeaders("openai-compatible", {
+        OPENAI_COMPATIBLE_HEADERS: '{"X-Meta":{"a":"b"}}',
+      }),
+    ).toThrow(/OPENAI_COMPATIBLE_HEADERS/u);
   });
 });

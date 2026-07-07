@@ -16,6 +16,7 @@ export const OPENAI_CHATGPT_EXPIRES_AT_ENV_KEY = "OPENAI_CHATGPT_EXPIRES_AT";
 export const OPENAI_CHATGPT_ACCOUNT_ID_ENV_KEY = "OPENAI_CHATGPT_ACCOUNT_ID";
 export const OPENAI_CHATGPT_EMAIL_ENV_KEY = "OPENAI_CHATGPT_EMAIL";
 export const OPENAI_CHATGPT_PLAN_ENV_KEY = "OPENAI_CHATGPT_PLAN";
+export const OPENAI_COMPATIBLE_HEADERS_ENV_KEY = "OPENAI_COMPATIBLE_HEADERS";
 export const ANTHROPIC_API_KEY_ENV_KEY = "ANTHROPIC_API_KEY";
 export const ANTHROPIC_BASE_URL_ENV_KEY = "ANTHROPIC_BASE_URL";
 export const OPENROUTER_API_KEY_ENV_KEY = "OPENROUTER_API_KEY";
@@ -141,6 +142,11 @@ type ProviderConfig = {
    * with an alternative base URL (e.g. a self-hosted or proxied endpoint).
    */
   baseUrlEnvKey?: string;
+  /**
+   * Environment variable that, when set, supplies extra request headers (as a
+   * JSON object of string values) sent on every request for this provider.
+   */
+  headersEnvKey?: string;
   /**
    * When true, the provider has no default endpoint and requires a base URL to
    * be supplied via {@link ProviderConfig.baseUrlEnvKey}.
@@ -269,6 +275,7 @@ export const PROVIDER_CONFIGS: Record<OpenWikiProvider, ProviderConfig> = {
   "openai-compatible": {
     apiKeyEnvKey: OPENAI_COMPATIBLE_API_KEY_ENV_KEY,
     baseUrlEnvKey: OPENAI_COMPATIBLE_BASE_URL_ENV_KEY,
+    headersEnvKey: OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
     requiresBaseUrl: true,
     label: "OpenAI-compatible",
     modelOptions: [],
@@ -457,6 +464,63 @@ export function getProviderBaseUrlEnvKey(
   provider: OpenWikiProvider,
 ): string | undefined {
   return getProviderConfig(provider).baseUrlEnvKey;
+}
+
+export function getProviderHeadersEnvKey(
+  provider: OpenWikiProvider,
+): string | undefined {
+  return getProviderConfig(provider).headersEnvKey;
+}
+
+/**
+ * Resolves custom request headers for a provider from its configured env var.
+ * Returns `undefined` when the provider has no headers key or the value is
+ * unset/blank. Throws when the value is set but is not a JSON object whose
+ * every value is a string.
+ */
+export function resolveProviderHeaders(
+  provider: OpenWikiProvider,
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, string> | undefined {
+  const headersEnvKey = getProviderConfig(provider).headersEnvKey;
+
+  if (!headersEnvKey) {
+    return undefined;
+  }
+
+  const raw = env[headersEnvKey]?.trim();
+
+  if (!raw) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `${headersEnvKey} must be a JSON object of string header values.`,
+    );
+  }
+
+  if (!isValidHeadersRecord(parsed)) {
+    throw new Error(
+      `${headersEnvKey} must be a JSON object of string header values.`,
+    );
+  }
+
+  return parsed;
+}
+
+export function isValidHeadersRecord(
+  value: unknown,
+): value is Record<string, string> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((entry) => typeof entry === "string");
 }
 
 export function providerRequiresBaseUrl(provider: OpenWikiProvider): boolean {
