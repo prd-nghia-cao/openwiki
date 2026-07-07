@@ -86,7 +86,7 @@ Providers and their model options are defined in `PROVIDER_CONFIGS` in `src/cons
 | baseten           | `BASETEN_API_KEY`                                   | `https://inference.baseten.co/v1`              | GLM 5.2, Kimi K2.7 Code                                               |
 | fireworks         | `FIREWORKS_API_KEY`                                 | `https://api.fireworks.ai/inference/v1`        | GLM 5.2, Kimi K2.7 Code                                               |
 | nvidia            | `NVIDIA_API_KEY`                                    | `https://integrate.api.nvidia.com/v1`          | Nemotron 3 Super/Ultra/Nano, DeepSeek V4 Pro, GPT-OSS 120B, Kimi K2.6 |
-| openai-compatible | `OPENAI_COMPATIBLE_API_KEY`                         | `OPENAI_COMPATIBLE_BASE_URL` (required)        | custom model ID only                                                  |
+| openai-compatible | `OPENAI_COMPATIBLE_API_KEY`                         | `OPENAI_COMPATIBLE_BASE_URL` (required)        | custom model ID only (optional `OPENAI_COMPATIBLE_HEADERS`)           |
 | anthropic         | `ANTHROPIC_API_KEY`                                 | (default, or `ANTHROPIC_BASE_URL`)             | Haiku, Sonnet, Opus                                                   |
 | vertex            | none (Google ADC) — `GOOGLE_CLOUD_PROJECT` required | per `GOOGLE_CLOUD_LOCATION` (default `global`) | Haiku, Sonnet, Opus (Claude on Vertex AI)                             |
 
@@ -129,6 +129,12 @@ OPENAI_COMPATIBLE_API_KEY=<gateway key>
 OPENAI_COMPATIBLE_BASE_URL=https://<gateway>/v1
 OPENWIKI_MODEL_ID=<model name the gateway exposes>
 ```
+
+Optionally set `OPENAI_COMPATIBLE_HEADERS` to a JSON object of string values to
+send extra headers on every request (for gateways that need custom auth or
+routing headers), e.g. `OPENAI_COMPATIBLE_HEADERS={"X-Api-Key":"abc"}`. The
+headers are passed through as `configuration.defaultHeaders` on the ChatOpenAI
+client; a malformed value aborts the run early.
 
 Base URLs are resolved by `resolveProviderBaseUrl()` in `src/constants.ts`, which
 prefers a provider's `baseUrlEnvKey` override over the built-in default.

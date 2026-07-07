@@ -41,6 +41,7 @@ The file stores provider configuration and API keys:
 - ChatGPT OAuth tokens (for the `openai-chatgpt` provider): `OPENAI_CHATGPT_ACCESS_TOKEN`, `OPENAI_CHATGPT_REFRESH_TOKEN`, `OPENAI_CHATGPT_EXPIRES_AT`, `OPENAI_CHATGPT_ACCOUNT_ID`, `OPENAI_CHATGPT_EMAIL`, `OPENAI_CHATGPT_PLAN`
 - Connector OAuth credentials: `OPENWIKI_GMAIL_ACCESS_TOKEN`, `OPENWIKI_GMAIL_REFRESH_TOKEN`, `OPENWIKI_GOOGLE_CLIENT_ID`, `OPENWIKI_GOOGLE_CLIENT_SECRET`, `OPENWIKI_NOTION_MCP_ACCESS_TOKEN`, `OPENWIKI_NOTION_MCP_CLIENT_ID`, `OPENWIKI_NOTION_MCP_REFRESH_TOKEN`, `OPENWIKI_SLACK_USER_TOKEN`, `OPENWIKI_SLACK_CLIENT_ID`, `OPENWIKI_SLACK_CLIENT_SECRET`, `OPENWIKI_X_ACCESS_TOKEN`, `OPENWIKI_X_CLIENT_ID`, `OPENWIKI_X_CLIENT_SECRET`, `OPENWIKI_X_REFRESH_TOKEN`
 - Base URLs: `ANTHROPIC_BASE_URL` (optional — routes the anthropic provider at an Anthropic-compatible endpoint other than the default API) and `OPENAI_COMPATIBLE_BASE_URL` (required by the openai-compatible provider, which has no default endpoint)
+- Optional headers: `OPENAI_COMPATIBLE_HEADERS` (optional — a JSON object of string values injected as request headers for the openai-compatible provider; malformed values fail the run)
 - Connector API keys: `TAVILY_API_KEY` for Web Search
 - Google Cloud settings for the vertex provider: `GOOGLE_CLOUD_PROJECT` (required to run vertex), `GOOGLE_CLOUD_LOCATION` (optional, defaults to `global`), and `GOOGLE_APPLICATION_CREDENTIALS` (optional service-account key file path; never prompted for — Google Application Default Credentials handle auth)
 - Optional LangSmith settings: `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT`, `LANGCHAIN_TRACING_V2`
@@ -180,7 +181,7 @@ The env layer also produces diagnostics for the CLI UI. Those diagnostics report
 - invalid model IDs,
 - invalid provider values.
 
-Diagnostics cover all provider keys (including `OPENAI_CHATGPT_ACCESS_TOKEN` and related ChatGPT OAuth tokens), plus `OPENWIKI_PROVIDER`, `OPENWIKI_MODEL_ID`, `OPENWIKI_PROVIDER_RETRY_ATTEMPTS`, the base URLs (`ANTHROPIC_BASE_URL`, `OPENAI_COMPATIBLE_BASE_URL`), the Google Cloud settings (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS`), connector credentials, and `LANGSMITH_API_KEY`. This makes startup problems easier to diagnose without exposing secret values (non-secret values such as the provider, model ID, retry attempts, base URLs, and the Google Cloud settings are shown in full — the service-account key _path_ is not a secret, though the file it points to is).
+Diagnostics cover all provider keys (including `OPENAI_CHATGPT_ACCESS_TOKEN` and related ChatGPT OAuth tokens), plus `OPENWIKI_PROVIDER`, `OPENWIKI_MODEL_ID`, `OPENWIKI_PROVIDER_RETRY_ATTEMPTS`, the base URLs (`ANTHROPIC_BASE_URL`, `OPENAI_COMPATIBLE_BASE_URL`), the optional `OPENAI_COMPATIBLE_HEADERS` (shown masked, since it may carry secrets), the Google Cloud settings (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS`), connector credentials, and `LANGSMITH_API_KEY`. This makes startup problems easier to diagnose without exposing secret values (non-secret values such as the provider, model ID, retry attempts, and base URLs are shown in full — the service-account key _path_ is not a secret, though the file it points to is).
 
 ## Update metadata
 

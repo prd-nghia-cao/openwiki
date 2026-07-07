@@ -258,8 +258,14 @@ OpenAI-shaped API. Set the model ID to whatever name the gateway exposes:
 OPENWIKI_PROVIDER=openai-compatible
 OPENAI_COMPATIBLE_API_KEY=your-gateway-key
 OPENAI_COMPATIBLE_BASE_URL=https://your-gateway.example.com/v1
+OPENAI_COMPATIBLE_HEADERS={"X-Api-Key":"abc123","X-Org":"acme"}
 OPENWIKI_MODEL_ID=your-gateway-model-name
 ```
+
+`OPENAI_COMPATIBLE_HEADERS` is optional. When set, it must be a JSON object of
+string values; those headers are sent on every request to the gateway (useful
+for gateways that require extra auth or routing headers). Invalid JSON causes the
+run to fail with a clear error.
 
 Local LLM servers that expose OpenAI-compatible chat completions use the same
 provider. The model ID must match a model available from that local server:
