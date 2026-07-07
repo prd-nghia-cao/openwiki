@@ -10,6 +10,7 @@ import {
   getProviderApiKeyEnvKey,
   getProviderHeadersEnvKey,
   getProviderModelOptions,
+  getProviderQueryEnvKey,
   getProviderRegionEnvKey,
   getProviderSecretKeyEnvKey,
   getProvidersForKnownModelId,
@@ -22,6 +23,7 @@ import {
   normalizeModelId,
   normalizeProvider,
   OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
+  OPENAI_COMPATIBLE_QUERY_ENV_KEY,
   providerRequiresApiKey,
   providerRequiresRegion,
   providerRequiresSecretKey,
@@ -30,6 +32,7 @@ import {
   resolveProviderBaseUrl,
   resolveProviderHeaders,
   resolveProviderLocation,
+  resolveProviderQuery,
   resolveProviderRegion,
   resolveProviderRetryAttempts,
 } from "../src/constants.ts";
@@ -562,5 +565,80 @@ describe("resolveProviderHeaders", () => {
         OPENAI_COMPATIBLE_HEADERS: '{"X-Meta":{"a":"b"}}',
       }),
     ).toThrow(/OPENAI_COMPATIBLE_HEADERS/u);
+  });
+});
+
+describe("getProviderQueryEnvKey", () => {
+  test("returns the query key for openai-compatible", () => {
+    expect(getProviderQueryEnvKey("openai-compatible")).toBe(
+      OPENAI_COMPATIBLE_QUERY_ENV_KEY,
+    );
+  });
+
+  test("returns undefined for providers without a query key", () => {
+    expect(getProviderQueryEnvKey("openrouter")).toBeUndefined();
+    expect(getProviderQueryEnvKey("anthropic")).toBeUndefined();
+  });
+});
+
+describe("resolveProviderQuery", () => {
+  test("returns undefined when the query env var is unset", () => {
+    expect(resolveProviderQuery("openai-compatible", {})).toBeUndefined();
+  });
+
+  test("returns undefined when the value is whitespace only", () => {
+    expect(
+      resolveProviderQuery("openai-compatible", {
+        OPENAI_COMPATIBLE_QUERY: "   ",
+      }),
+    ).toBeUndefined();
+  });
+
+  test("returns undefined for providers without a query key", () => {
+    expect(
+      resolveProviderQuery("openrouter", {
+        OPENAI_COMPATIBLE_QUERY: "a=1",
+      }),
+    ).toBeUndefined();
+  });
+
+  test("parses a basic query string", () => {
+    expect(
+      resolveProviderQuery("openai-compatible", {
+        OPENAI_COMPATIBLE_QUERY: "api-version=2024-06-01&region=us",
+      }),
+    ).toEqual({ "api-version": "2024-06-01", region: "us" });
+  });
+
+  test("strips a single leading question mark", () => {
+    expect(
+      resolveProviderQuery("openai-compatible", {
+        OPENAI_COMPATIBLE_QUERY: "?a=1",
+      }),
+    ).toEqual({ a: "1" });
+  });
+
+  test("percent-decodes values", () => {
+    expect(
+      resolveProviderQuery("openai-compatible", {
+        OPENAI_COMPATIBLE_QUERY: "q=a%20b",
+      }),
+    ).toEqual({ q: "a b" });
+  });
+
+  test("duplicate keys resolve last-wins", () => {
+    expect(
+      resolveProviderQuery("openai-compatible", {
+        OPENAI_COMPATIBLE_QUERY: "a=1&a=2",
+      }),
+    ).toEqual({ a: "2" });
+  });
+
+  test("returns undefined when the value parses to zero params", () => {
+    expect(
+      resolveProviderQuery("openai-compatible", {
+        OPENAI_COMPATIBLE_QUERY: "?",
+      }),
+    ).toBeUndefined();
   });
 });

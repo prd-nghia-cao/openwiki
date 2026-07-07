@@ -17,6 +17,7 @@ export const OPENAI_CHATGPT_ACCOUNT_ID_ENV_KEY = "OPENAI_CHATGPT_ACCOUNT_ID";
 export const OPENAI_CHATGPT_EMAIL_ENV_KEY = "OPENAI_CHATGPT_EMAIL";
 export const OPENAI_CHATGPT_PLAN_ENV_KEY = "OPENAI_CHATGPT_PLAN";
 export const OPENAI_COMPATIBLE_HEADERS_ENV_KEY = "OPENAI_COMPATIBLE_HEADERS";
+export const OPENAI_COMPATIBLE_QUERY_ENV_KEY = "OPENAI_COMPATIBLE_QUERY";
 export const ANTHROPIC_API_KEY_ENV_KEY = "ANTHROPIC_API_KEY";
 export const ANTHROPIC_BASE_URL_ENV_KEY = "ANTHROPIC_BASE_URL";
 export const OPENROUTER_API_KEY_ENV_KEY = "OPENROUTER_API_KEY";
@@ -148,6 +149,11 @@ type ProviderConfig = {
    */
   headersEnvKey?: string;
   /**
+   * Environment variable that, when set, supplies extra query-string parameters
+   * (a raw query string) appended to every request for this provider.
+   */
+  queryEnvKey?: string;
+  /**
    * When true, the provider has no default endpoint and requires a base URL to
    * be supplied via {@link ProviderConfig.baseUrlEnvKey}.
    */
@@ -276,6 +282,7 @@ export const PROVIDER_CONFIGS: Record<OpenWikiProvider, ProviderConfig> = {
     apiKeyEnvKey: OPENAI_COMPATIBLE_API_KEY_ENV_KEY,
     baseUrlEnvKey: OPENAI_COMPATIBLE_BASE_URL_ENV_KEY,
     headersEnvKey: OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
+    queryEnvKey: OPENAI_COMPATIBLE_QUERY_ENV_KEY,
     requiresBaseUrl: true,
     label: "OpenAI-compatible",
     modelOptions: [],
@@ -521,6 +528,43 @@ export function isValidHeadersRecord(
   }
 
   return Object.values(value).every((entry) => typeof entry === "string");
+}
+
+export function getProviderQueryEnvKey(
+  provider: OpenWikiProvider,
+): string | undefined {
+  return getProviderConfig(provider).queryEnvKey;
+}
+
+/**
+ * Resolves custom query-string parameters for a provider from its configured
+ * env var. Returns `undefined` when the provider has no query key, the value is
+ * unset/blank, or it parses to zero params. Duplicate keys resolve last-wins.
+ */
+export function resolveProviderQuery(
+  provider: OpenWikiProvider,
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, string> | undefined {
+  const queryEnvKey = getProviderConfig(provider).queryEnvKey;
+
+  if (!queryEnvKey) {
+    return undefined;
+  }
+
+  const raw = env[queryEnvKey]?.trim();
+
+  if (!raw) {
+    return undefined;
+  }
+
+  const normalized = raw.startsWith("?") ? raw.slice(1) : raw;
+  const params: Record<string, string> = {};
+
+  for (const [key, value] of new URLSearchParams(normalized)) {
+    params[key] = value;
+  }
+
+  return Object.keys(params).length > 0 ? params : undefined;
 }
 
 export function providerRequiresBaseUrl(provider: OpenWikiProvider): boolean {
