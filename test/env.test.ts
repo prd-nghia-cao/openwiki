@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { formatEnv, MANAGED_ENV_KEYS, parseEnv } from "../src/env.ts";
+import {
+  CREDENTIAL_DIAGNOSTIC_ENV_KEYS,
+  DEBUG_ENV_KEYS,
+  formatEnv,
+  MANAGED_ENV_KEYS,
+  parseEnv,
+} from "../src/env.ts";
+import { OPENAI_COMPATIBLE_HEADERS_ENV_KEY } from "../src/constants.ts";
 
 describe("parseEnv", () => {
   test("parses simple KEY=value lines", () => {
@@ -154,5 +161,18 @@ describe("parseEnv <-> formatEnv round-trip", () => {
     };
 
     expect(parseEnv(formatEnv(original))).toEqual(original);
+  });
+});
+
+describe("OPENAI_COMPATIBLE_HEADERS registration", () => {
+  test("is a managed env key", () => {
+    expect(MANAGED_ENV_KEYS).toContain(OPENAI_COMPATIBLE_HEADERS_ENV_KEY);
+  });
+
+  test("appears in credential diagnostics and debug key lists", () => {
+    expect(CREDENTIAL_DIAGNOSTIC_ENV_KEYS).toContain(
+      OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
+    );
+    expect(DEBUG_ENV_KEYS).toContain(OPENAI_COMPATIBLE_HEADERS_ENV_KEY);
   });
 });
