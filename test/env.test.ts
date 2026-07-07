@@ -7,7 +7,10 @@ import {
   MANAGED_ENV_KEYS,
   parseEnv,
 } from "../src/env.ts";
-import { OPENAI_COMPATIBLE_HEADERS_ENV_KEY } from "../src/constants.ts";
+import {
+  OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
+  OPENAI_COMPATIBLE_QUERY_ENV_KEY,
+} from "../src/constants.ts";
 
 describe("parseEnv", () => {
   test("parses simple KEY=value lines", () => {
@@ -175,6 +178,19 @@ describe("OPENAI_COMPATIBLE_HEADERS registration", () => {
       OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
     );
     expect(DEBUG_ENV_KEYS).toContain(OPENAI_COMPATIBLE_HEADERS_ENV_KEY);
+  });
+});
+
+describe("OPENAI_COMPATIBLE_QUERY registration", () => {
+  test("is a managed env key", () => {
+    expect(MANAGED_ENV_KEYS).toContain(OPENAI_COMPATIBLE_QUERY_ENV_KEY);
+  });
+
+  test("appears in credential diagnostics and debug key lists", () => {
+    expect(CREDENTIAL_DIAGNOSTIC_ENV_KEYS).toContain(
+      OPENAI_COMPATIBLE_QUERY_ENV_KEY,
+    );
+    expect(DEBUG_ENV_KEYS).toContain(OPENAI_COMPATIBLE_QUERY_ENV_KEY);
   });
 });
 
