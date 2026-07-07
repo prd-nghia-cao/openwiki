@@ -259,6 +259,7 @@ OPENWIKI_PROVIDER=openai-compatible
 OPENAI_COMPATIBLE_API_KEY=your-gateway-key
 OPENAI_COMPATIBLE_BASE_URL=https://your-gateway.example.com/v1
 OPENAI_COMPATIBLE_HEADERS={"X-Api-Key":"abc123","X-Org":"acme"}
+OPENAI_COMPATIBLE_QUERY=api-version=2024-06-01&region=us
 OPENWIKI_MODEL_ID=your-gateway-model-name
 ```
 
@@ -266,6 +267,10 @@ OPENWIKI_MODEL_ID=your-gateway-model-name
 string values; those headers are sent on every request to the gateway (useful
 for gateways that require extra auth or routing headers). Invalid JSON causes the
 run to fail with a clear error.
+
+`OPENAI_COMPATIBLE_QUERY` is optional. When set, it is a raw query string (e.g.
+`api-version=2024-06-01&region=us`) whose parameters are appended to every
+request to the gateway. Duplicate keys use the last value.
 
 Local LLM servers that expose OpenAI-compatible chat completions use the same
 provider. The model ID must match a model available from that local server:

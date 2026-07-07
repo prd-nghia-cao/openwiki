@@ -78,17 +78,17 @@ If a LangSmith key is provided, onboarding also enables `LANGCHAIN_PROJECT=openw
 
 Providers and their model options are defined in `PROVIDER_CONFIGS` in `src/constants.ts`:
 
-| Provider          | Env key                                             | Base URL                                       | Models                                                                |
-| ----------------- | --------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| openai            | `OPENAI_API_KEY`                                    | (default)                                      | 5.6 Terra, 5.6 Luna, 5.6 Sol, 5.5, 5.4 mini                           |
-| openai-chatgpt    | `OPENAI_CHATGPT_ACCESS_TOKEN`                       | (Codex backend)                                | Same as openai (OAuth login, no API key)                              |
-| openrouter        | `OPENROUTER_API_KEY`                                | `https://openrouter.ai/api/v1`                 | GLM 5.2, Fusion, Kimi K2.7 Code, Claude Opus/Sonnet, GPT 5.4 mini/5.5 |
-| baseten           | `BASETEN_API_KEY`                                   | `https://inference.baseten.co/v1`              | GLM 5.2, Kimi K2.7 Code                                               |
-| fireworks         | `FIREWORKS_API_KEY`                                 | `https://api.fireworks.ai/inference/v1`        | GLM 5.2, Kimi K2.7 Code                                               |
-| nvidia            | `NVIDIA_API_KEY`                                    | `https://integrate.api.nvidia.com/v1`          | Nemotron 3 Super/Ultra/Nano, DeepSeek V4 Pro, GPT-OSS 120B, Kimi K2.6 |
-| openai-compatible | `OPENAI_COMPATIBLE_API_KEY`                         | `OPENAI_COMPATIBLE_BASE_URL` (required)        | custom model ID only (optional `OPENAI_COMPATIBLE_HEADERS`)           |
-| anthropic         | `ANTHROPIC_API_KEY`                                 | (default, or `ANTHROPIC_BASE_URL`)             | Haiku, Sonnet, Opus                                                   |
-| vertex            | none (Google ADC) — `GOOGLE_CLOUD_PROJECT` required | per `GOOGLE_CLOUD_LOCATION` (default `global`) | Haiku, Sonnet, Opus (Claude on Vertex AI)                             |
+| Provider          | Env key                                             | Base URL                                       | Models                                                                                 |
+| ----------------- | --------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| openai            | `OPENAI_API_KEY`                                    | (default)                                      | 5.6 Terra, 5.6 Luna, 5.6 Sol, 5.5, 5.4 mini                                           |
+| openai-chatgpt    | `OPENAI_CHATGPT_ACCESS_TOKEN`                       | (Codex backend)                                | Same as openai (OAuth login, no API key)                                              |
+| openrouter        | `OPENROUTER_API_KEY`                                | `https://openrouter.ai/api/v1`                 | GLM 5.2, Fusion, Kimi K2.7 Code, Claude Opus/Sonnet, GPT 5.4 mini/5.5                  |
+| baseten           | `BASETEN_API_KEY`                                   | `https://inference.baseten.co/v1`              | GLM 5.2, Kimi K2.7 Code                                                                |
+| fireworks         | `FIREWORKS_API_KEY`                                 | `https://api.fireworks.ai/inference/v1`        | GLM 5.2, Kimi K2.7 Code                                                                |
+| nvidia            | `NVIDIA_API_KEY`                                    | `https://integrate.api.nvidia.com/v1`          | Nemotron 3 Super/Ultra/Nano, DeepSeek V4 Pro, GPT-OSS 120B, Kimi K2.6                  |
+| openai-compatible | `OPENAI_COMPATIBLE_API_KEY`                         | `OPENAI_COMPATIBLE_BASE_URL` (required)        | custom model ID only (optional `OPENAI_COMPATIBLE_HEADERS`, `OPENAI_COMPATIBLE_QUERY`) |
+| anthropic         | `ANTHROPIC_API_KEY`                                 | (default, or `ANTHROPIC_BASE_URL`)             | Haiku, Sonnet, Opus                                                                    |
+| vertex            | none (Google ADC) — `GOOGLE_CLOUD_PROJECT` required | per `GOOGLE_CLOUD_LOCATION` (default `global`) | Haiku, Sonnet, Opus (Claude on Vertex AI)                                             |
 
 The default provider is `openai`, and the default model is `gpt-5.6-terra`. `resolveConfiguredProvider()` picks the provider from `OPENWIKI_PROVIDER`, then falls back to the first configured provider API key in this order: OpenAI, OpenAI-compatible, OpenRouter, Anthropic, Baseten, Fireworks, NVIDIA, and finally `DEFAULT_PROVIDER`.
 
@@ -135,6 +135,12 @@ send extra headers on every request (for gateways that need custom auth or
 routing headers), e.g. `OPENAI_COMPATIBLE_HEADERS={"X-Api-Key":"abc"}`. The
 headers are passed through as `configuration.defaultHeaders` on the ChatOpenAI
 client; a malformed value aborts the run early.
+
+Optionally set `OPENAI_COMPATIBLE_QUERY` to a raw query string (e.g.
+`OPENAI_COMPATIBLE_QUERY=api-version=2024-06-01&region=us`) to append query
+parameters to every request. It is passed through as
+`configuration.defaultQuery` on the ChatOpenAI client; duplicate keys use the
+last value.
 
 Base URLs are resolved by `resolveProviderBaseUrl()` in `src/constants.ts`, which
 prefers a provider's `baseUrlEnvKey` override over the built-in default.
