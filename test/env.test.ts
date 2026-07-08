@@ -3,6 +3,7 @@ import {
   CREDENTIAL_DIAGNOSTIC_ENV_KEYS,
   DEBUG_ENV_KEYS,
   formatEnv,
+  getCredentialDiagnostics,
   getHeadersWarnings,
   MANAGED_ENV_KEYS,
   parseEnv,
@@ -10,6 +11,14 @@ import {
 import {
   OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
   OPENAI_COMPATIBLE_QUERY_ENV_KEY,
+  WORKDAY_CIS_API_KEY_ENV_KEY,
+  WORKDAY_CIS_BASE_URL_ENV_KEY,
+  WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY,
+  WORKDAY_CIS_HEADERS_ENV_KEY,
+  WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY,
+  WORKDAY_CIS_QUERY_ENV_KEY,
+  WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
+  WORKDAY_CIS_TASK_TYPE_ENV_KEY,
 } from "../src/constants.ts";
 
 describe("parseEnv", () => {
@@ -208,5 +217,66 @@ describe("getHeadersWarnings", () => {
     expect(getHeadersWarnings('{"X-Count":1}')).toEqual([
       "invalid headers JSON",
     ]);
+  });
+});
+
+describe("workday-cis managed env keys", () => {
+  const cisKeys = [
+    WORKDAY_CIS_API_KEY_ENV_KEY,
+    WORKDAY_CIS_BASE_URL_ENV_KEY,
+    WORKDAY_CIS_HEADERS_ENV_KEY,
+    WORKDAY_CIS_QUERY_ENV_KEY,
+    WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
+    WORKDAY_CIS_TASK_TYPE_ENV_KEY,
+    WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY,
+    WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY,
+  ];
+
+  test("all CIS keys are managed and appear in diagnostics + debug dump", () => {
+    for (const key of cisKeys) {
+      expect(MANAGED_ENV_KEYS).toContain(key);
+      expect(CREDENTIAL_DIAGNOSTIC_ENV_KEYS).toContain(key);
+      expect(DEBUG_ENV_KEYS).toContain(key);
+    }
+  });
+});
+
+describe("workday-cis credential diagnostics", () => {
+  test("masks api key, shows base url and target provider in full", async () => {
+    process.env[WORKDAY_CIS_API_KEY_ENV_KEY] = "supersecretkey123";
+    process.env[WORKDAY_CIS_BASE_URL_ENV_KEY] =
+      "https://host/ml/inference/cis/v1alpha1";
+    process.env[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY] = "google";
+
+    const diagnostics = await getCredentialDiagnostics();
+    const byKey = new Map(diagnostics.map((d) => [d.key, d]));
+
+    const apiKeyPreview = byKey.get(WORKDAY_CIS_API_KEY_ENV_KEY)?.preview;
+    expect(apiKeyPreview).toBeTruthy();
+    expect(apiKeyPreview).not.toContain("supersecretkey123");
+    expect(byKey.get(WORKDAY_CIS_BASE_URL_ENV_KEY)?.preview).toBe(
+      JSON.stringify("https://host/ml/inference/cis/v1alpha1"),
+    );
+    expect(byKey.get(WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY)?.preview).toBe(
+      JSON.stringify("google"),
+    );
+
+    delete process.env[WORKDAY_CIS_API_KEY_ENV_KEY];
+    delete process.env[WORKDAY_CIS_BASE_URL_ENV_KEY];
+    delete process.env[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY];
+  });
+
+  test("masks headers json containing secret values", async () => {
+    process.env[WORKDAY_CIS_HEADERS_ENV_KEY] =
+      '{"Authorization":"Bearer secret-token-abc"}';
+
+    const diagnostics = await getCredentialDiagnostics();
+    const byKey = new Map(diagnostics.map((d) => [d.key, d]));
+
+    const headersPreview = byKey.get(WORKDAY_CIS_HEADERS_ENV_KEY)?.preview;
+    expect(headersPreview).toBeTruthy();
+    expect(headersPreview).not.toContain("secret-token-abc");
+
+    delete process.env[WORKDAY_CIS_HEADERS_ENV_KEY];
   });
 });

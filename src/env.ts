@@ -56,6 +56,14 @@ import {
   OPENWIKI_PROVIDER_ENV_KEY,
   OPENWIKI_PROVIDER_RETRY_ATTEMPTS_ENV_KEY,
   resolveProviderRetryAttempts,
+  WORKDAY_CIS_API_KEY_ENV_KEY,
+  WORKDAY_CIS_BASE_URL_ENV_KEY,
+  WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY,
+  WORKDAY_CIS_HEADERS_ENV_KEY,
+  WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY,
+  WORKDAY_CIS_QUERY_ENV_KEY,
+  WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
+  WORKDAY_CIS_TASK_TYPE_ENV_KEY,
 } from "./constants.js";
 import { isFileNotFoundError } from "./fs-errors.js";
 import { restrictDirToCurrentUser } from "./windows-acl.js";
@@ -102,6 +110,14 @@ export const MANAGED_ENV_KEYS = [
   OPENAI_COMPATIBLE_BASE_URL_ENV_KEY,
   OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
   OPENAI_COMPATIBLE_QUERY_ENV_KEY,
+  WORKDAY_CIS_API_KEY_ENV_KEY,
+  WORKDAY_CIS_BASE_URL_ENV_KEY,
+  WORKDAY_CIS_HEADERS_ENV_KEY,
+  WORKDAY_CIS_QUERY_ENV_KEY,
+  WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
+  WORKDAY_CIS_TASK_TYPE_ENV_KEY,
+  WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY,
+  WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY,
   ANTHROPIC_API_KEY_ENV_KEY,
   ANTHROPIC_BASE_URL_ENV_KEY,
   GEMINI_API_KEY_ENV_KEY,
@@ -358,7 +374,8 @@ function createCredentialDiagnostic(
               ? getProviderBaseUrlWarnings("openai-compatible", value)
               : key === ANTHROPIC_BASE_URL_ENV_KEY
                 ? getProviderBaseUrlWarnings("anthropic", value)
-                : key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY
+                : key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY ||
+                    key === WORKDAY_CIS_HEADERS_ENV_KEY
                   ? getHeadersWarnings(value)
                   : getCredentialWarnings(value),
   };
@@ -396,7 +413,13 @@ function isNonSecretDiagnosticKey(key: string): boolean {
     key === BEDROCK_AWS_REGION_ENV_KEY ||
     key === GOOGLE_CLOUD_PROJECT_ENV_KEY ||
     key === GOOGLE_CLOUD_LOCATION_ENV_KEY ||
-    key === GOOGLE_APPLICATION_CREDENTIALS_ENV_KEY
+    key === GOOGLE_APPLICATION_CREDENTIALS_ENV_KEY ||
+    key === WORKDAY_CIS_BASE_URL_ENV_KEY ||
+    key === WORKDAY_CIS_QUERY_ENV_KEY ||
+    key === WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY ||
+    key === WORKDAY_CIS_TASK_TYPE_ENV_KEY ||
+    key === WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY ||
+    key === WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY
   );
 }
 
