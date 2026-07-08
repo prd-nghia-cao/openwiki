@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   AIMessage,
+  AIMessageChunk,
   HumanMessage,
   SystemMessage,
   ToolMessage,
@@ -162,10 +163,14 @@ describe("cisChunkToGeneration", () => {
       },
     });
 
-    const toolCallChunks = chunk?.message.tool_call_chunks ?? [];
-    expect(toolCallChunks[0]?.name).toBe("ls");
-    expect(toolCallChunks[0]?.args).toBe('{"path":"."}');
-    expect(toolCallChunks[0]?.index).toBe(0);
+    if (!AIMessageChunk.isInstance(chunk?.message)) {
+      throw new Error("expected an AIMessageChunk");
+    }
+
+    const [toolCallChunk] = chunk.message.tool_call_chunks ?? [];
+    expect(toolCallChunk?.name).toBe("ls");
+    expect(toolCallChunk?.args).toBe('{"path":"."}');
+    expect(toolCallChunk?.index).toBe(0);
   });
 
   test("returns null for empty payloads", () => {
