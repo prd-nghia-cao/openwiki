@@ -39,6 +39,22 @@ export const NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1/";
 export const OPENWIKI_PROVIDER_RETRY_ATTEMPTS_ENV_KEY =
   "OPENWIKI_PROVIDER_RETRY_ATTEMPTS";
 export const DEFAULT_PROVIDER_RETRY_ATTEMPTS = 3;
+export const WORKDAY_CIS_API_KEY_ENV_KEY = "WORKDAY_CIS_API_KEY";
+export const WORKDAY_CIS_BASE_URL_ENV_KEY = "WORKDAY_CIS_BASE_URL";
+export const WORKDAY_CIS_HEADERS_ENV_KEY = "WORKDAY_CIS_HEADERS";
+export const WORKDAY_CIS_QUERY_ENV_KEY = "WORKDAY_CIS_QUERY";
+export const WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY = "WORKDAY_CIS_TARGET_PROVIDER";
+export const WORKDAY_CIS_TASK_TYPE_ENV_KEY = "WORKDAY_CIS_TASK_TYPE";
+export const WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY = "WORKDAY_CIS_PREDICTION_TYPE";
+export const WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY =
+  "WORKDAY_CIS_GENERATION_CONFIG";
+export const DEFAULT_CIS_TASK_TYPE = "gcp-multimodal-v2";
+export const DEFAULT_CIS_GENERATION_CONFIG: Record<string, unknown> = {
+  temperature: 0.2,
+  maxOutputTokens: 8192,
+  topK: 40,
+  topP: 0.95,
+};
 export const OPENWIKI_GOOGLE_ACCESS_TOKEN_ENV_KEY =
   "OPENWIKI_GOOGLE_ACCESS_TOKEN";
 export const OPENWIKI_GOOGLE_CLIENT_ID_ENV_KEY = "OPENWIKI_GOOGLE_CLIENT_ID";
@@ -82,7 +98,8 @@ export type OpenWikiProvider =
   | "openai"
   | "openai-chatgpt"
   | "openai-compatible"
-  | "openrouter";
+  | "openrouter"
+  | "workday-cis";
 
 /**
  * How a provider authenticates. Providers default to `"api-key"` (a pasted
@@ -169,6 +186,11 @@ type ProviderConfig = {
    */
   locationEnvKey?: string;
   defaultLocation?: string;
+  /**
+   * When true, the provider can run without an API key (auth supplied via
+   * headers/query instead), so the API key is not required at startup.
+   */
+  apiKeyOptional?: boolean;
   label: string;
   modelOptions: ProviderModelOption[];
   /**
@@ -197,6 +219,7 @@ export const SELECTABLE_OPENWIKI_PROVIDERS = [
   "gemini-enterprise",
   "openrouter",
   "openai-compatible",
+  "workday-cis",
   "bedrock",
   "fireworks",
   "baseten",
@@ -287,6 +310,16 @@ export const PROVIDER_CONFIGS: Record<OpenWikiProvider, ProviderConfig> = {
     label: "OpenAI-compatible",
     modelOptions: [],
   },
+  "workday-cis": {
+    apiKeyEnvKey: WORKDAY_CIS_API_KEY_ENV_KEY,
+    apiKeyOptional: true,
+    baseUrlEnvKey: WORKDAY_CIS_BASE_URL_ENV_KEY,
+    headersEnvKey: WORKDAY_CIS_HEADERS_ENV_KEY,
+    queryEnvKey: WORKDAY_CIS_QUERY_ENV_KEY,
+    requiresBaseUrl: true,
+    label: "Workday CIS",
+    modelOptions: [],
+  },
   anthropic: {
     apiKeyEnvKey: ANTHROPIC_API_KEY_ENV_KEY,
     baseUrlEnvKey: ANTHROPIC_BASE_URL_ENV_KEY,
@@ -368,7 +401,13 @@ export function providerUsesOAuth(provider: OpenWikiProvider): boolean {
 }
 
 export function providerRequiresApiKey(provider: OpenWikiProvider): boolean {
-  return getProviderConfig(provider).apiKeyEnvKey !== undefined;
+  const config = getProviderConfig(provider);
+
+  if (config.apiKeyOptional) {
+    return false;
+  }
+
+  return config.apiKeyEnvKey !== undefined;
 }
 
 export function getProviderProjectEnvKey(
@@ -395,7 +434,7 @@ export function getMissingProviderEnvKey(
 ): string | null {
   const config = getProviderConfig(provider);
 
-  if (config.apiKeyEnvKey && !env[config.apiKeyEnvKey]) {
+  if (config.apiKeyEnvKey && config.apiKeyOptional !== true && !env[config.apiKeyEnvKey]) {
     return config.apiKeyEnvKey;
   }
 
@@ -816,6 +855,58 @@ export function isValidModelId(value: string): boolean {
     /^[@A-Za-z0-9][A-Za-z0-9._:/@+-]*$/u.test(modelId) &&
     !modelId.includes("://")
   );
+}
+
+export function resolveCisTargetProvider(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const value = env[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY]?.trim();
+
+  return value ? value : undefined;
+}
+
+export function resolveCisTaskType(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const value = env[WORKDAY_CIS_TASK_TYPE_ENV_KEY]?.trim();
+
+  return value ? value : DEFAULT_CIS_TASK_TYPE;
+}
+
+export function resolveCisPredictionType(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const value = env[WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY]?.trim();
+
+  return value ? value : undefined;
+}
+
+export function resolveCisGenerationConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, unknown> {
+  const raw = env[WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY]?.trim();
+
+  if (!raw) {
+    return { ...DEFAULT_CIS_GENERATION_CONFIG };
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `${WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY} must be a JSON object.`,
+    );
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(
+      `${WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY} must be a JSON object.`,
+    );
+  }
+
+  return { ...DEFAULT_CIS_GENERATION_CONFIG, ...(parsed as Record<string, unknown>) };
 }
 
 export const OPENWIKI_VERSION = "0.2.1";

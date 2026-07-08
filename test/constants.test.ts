@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  DEFAULT_CIS_GENERATION_CONFIG,
+  DEFAULT_CIS_TASK_TYPE,
   DEFAULT_MODEL_ID,
   DEFAULT_PROVIDER_RETRY_ATTEMPTS,
   DEFAULT_PROVIDER,
@@ -25,8 +27,13 @@ import {
   OPENAI_COMPATIBLE_HEADERS_ENV_KEY,
   OPENAI_COMPATIBLE_QUERY_ENV_KEY,
   providerRequiresApiKey,
+  providerRequiresBaseUrl,
   providerRequiresRegion,
   providerRequiresSecretKey,
+  resolveCisGenerationConfig,
+  resolveCisPredictionType,
+  resolveCisTargetProvider,
+  resolveCisTaskType,
   resolveConfiguredProvider,
   resolveOpenRouterProviderOnly,
   resolveProviderBaseUrl,
@@ -35,6 +42,10 @@ import {
   resolveProviderQuery,
   resolveProviderRegion,
   resolveProviderRetryAttempts,
+  WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY,
+  WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY,
+  WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
+  WORKDAY_CIS_TASK_TYPE_ENV_KEY,
 } from "../src/constants.ts";
 
 describe("isValidModelId", () => {
@@ -640,5 +651,64 @@ describe("resolveProviderQuery", () => {
         OPENAI_COMPATIBLE_QUERY: "?",
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("workday-cis provider registration", () => {
+  test("is a valid, base-url-requiring provider with optional api key", () => {
+    expect(isValidProvider("workday-cis")).toBe(true);
+    expect(providerRequiresBaseUrl("workday-cis")).toBe(true);
+    expect(providerRequiresApiKey("workday-cis")).toBe(false);
+    expect(providerRequiresApiKey("openai")).toBe(true);
+  });
+});
+
+describe("resolveCisTargetProvider", () => {
+  test("returns trimmed value or undefined", () => {
+    expect(
+      resolveCisTargetProvider({ [WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY]: " google " }),
+    ).toBe("google");
+    expect(resolveCisTargetProvider({})).toBeUndefined();
+  });
+});
+
+describe("resolveCisTaskType", () => {
+  test("defaults to gcp-multimodal-v2 and honors override", () => {
+    expect(resolveCisTaskType({})).toBe(DEFAULT_CIS_TASK_TYPE);
+    expect(resolveCisTaskType({ [WORKDAY_CIS_TASK_TYPE_ENV_KEY]: " custom " })).toBe(
+      "custom",
+    );
+  });
+});
+
+describe("resolveCisPredictionType", () => {
+  test("returns trimmed value or undefined", () => {
+    expect(
+      resolveCisPredictionType({ [WORKDAY_CIS_PREDICTION_TYPE_ENV_KEY]: " text " }),
+    ).toBe("text");
+    expect(resolveCisPredictionType({})).toBeUndefined();
+  });
+});
+
+describe("resolveCisGenerationConfig", () => {
+  test("returns defaults when unset", () => {
+    expect(resolveCisGenerationConfig({})).toEqual(DEFAULT_CIS_GENERATION_CONFIG);
+  });
+
+  test("shallow-merges JSON override over defaults", () => {
+    expect(
+      resolveCisGenerationConfig({
+        [WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY]: '{"temperature":0.9,"maxOutputTokens":100}',
+      }),
+    ).toEqual({ ...DEFAULT_CIS_GENERATION_CONFIG, temperature: 0.9, maxOutputTokens: 100 });
+  });
+
+  test("throws on invalid JSON or non-object", () => {
+    expect(() =>
+      resolveCisGenerationConfig({ [WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY]: "nope" }),
+    ).toThrow(/must be a JSON object/);
+    expect(() =>
+      resolveCisGenerationConfig({ [WORKDAY_CIS_GENERATION_CONFIG_ENV_KEY]: "[1,2]" }),
+    ).toThrow(/must be a JSON object/);
   });
 });
