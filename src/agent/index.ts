@@ -45,6 +45,7 @@ import {
   vertexOpenAIBaseUrl,
   withAnthropicAuthEnvNeutralized,
 } from "./vertex-surface.js";
+import { ChatWorkdayCis } from "./workday-cis-chat-model.js";
 import type {
   OpenWikiCommand,
   OpenWikiOutputMode,
@@ -79,9 +80,14 @@ import {
   OPENWIKI_MODEL_ID_ENV_KEY,
   OPENWIKI_PROVIDER_ENV_KEY,
   OPENWIKI_PROVIDER_RETRY_ATTEMPTS_ENV_KEY,
+  providerRequiresApiKey,
   providerRequiresBaseUrl,
   providerRequiresRegion,
   providerRequiresSecretKey,
+  resolveCisGenerationConfig,
+  resolveCisPredictionType,
+  resolveCisTargetProvider,
+  resolveCisTaskType,
   resolveConfiguredProvider,
   resolveOpenRouterProviderOnly,
   resolveProviderBaseUrl,
@@ -90,6 +96,8 @@ import {
   resolveProviderQuery,
   resolveProviderRegion,
   resolveProviderRetryAttempts,
+  WORKDAY_CIS_HEADERS_ENV_KEY,
+  WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
   type OpenWikiProvider,
 } from "../constants.js";
 import {
@@ -756,6 +764,36 @@ export function createModel(
       model: modelId,
       region: resolveProviderRegion(provider),
       ...retryOptions,
+    });
+  }
+
+  if (provider === "workday-cis") {
+    const targetProvider = resolveCisTargetProvider();
+
+    if (!targetProvider) {
+      throw new Error(
+        `${WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY} is required to run OpenWiki with ${getProviderLabel(provider)}.`,
+      );
+    }
+
+    const baseURL = resolveProviderBaseUrl(provider);
+
+    if (!baseURL) {
+      throw new Error(
+        `${getProviderBaseUrlEnvKey(provider) ?? "base URL"} is required to run OpenWiki with ${getProviderLabel(provider)}.`,
+      );
+    }
+
+    return new ChatWorkdayCis({
+      model: modelId,
+      baseURL,
+      apiKey: process.env[getProviderApiKeyEnvKey(provider)],
+      headers: resolveProviderHeaders(provider),
+      query: resolveProviderQuery(provider),
+      targetProvider,
+      taskType: resolveCisTaskType(),
+      predictionType: resolveCisPredictionType(),
+      generationConfig: resolveCisGenerationConfig(),
     });
   }
 
@@ -1510,7 +1548,10 @@ function isProviderChatFetchInput(
 ): boolean {
   const url = getFetchInputUrl(input);
 
-  if (url === null || !url.includes("/chat/completions")) {
+  if (
+    url === null ||
+    !(url.includes("/chat/completions") || url.includes("/predictions/stream"))
+  ) {
     return false;
   }
 
@@ -1714,7 +1755,10 @@ function formatDebugValue(key: string, value: string | undefined): string {
     return `set(length=${value.length})`;
   }
 
-  if (key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY) {
+  if (
+    key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY ||
+    key === WORKDAY_CIS_HEADERS_ENV_KEY
+  ) {
     return `set(length=${value.length})`;
   }
 
