@@ -37,7 +37,6 @@ params, using the OpenAI SDK's `configuration.defaultQuery`
 
   A single leading `?` is tolerated and stripped
   (`?api-version=2024-06-01` works too).
-
 - **Empty/unset:** no query params are added (current behavior).
 - **Parsing:** parsed with `URLSearchParams`, which is lenient and performs
   standard percent-decoding. Duplicate keys resolve to **last value wins**.

@@ -149,17 +149,14 @@ export async function runOpenWikiAgent(
     emitDebug(options, "update.noop=false reason=user message provided");
   }
 
-  const debugFetchCapture = installOpenRouterDebugFetch(options);
-
-  // Resolved inside the try so a failure during resolution (missing key,
-  // invalid model, missing base URL) is still recorded. They may be undefined
-  // in the catch if resolution threw before assigning them.
   let provider: OpenWikiProvider | undefined;
   let modelId: string | undefined;
+  let debugFetchCapture: OpenRouterFetchCapture | undefined;
 
   try {
     provider = resolveConfiguredProvider();
     const providerBaseUrl = resolveProviderBaseUrl(provider);
+    debugFetchCapture = installOpenRouterDebugFetch(options, providerBaseUrl);
     emitDebug(options, `provider=${provider}`);
     if (providerBaseUrl) {
       emitDebug(options, `provider.baseUrl=${JSON.stringify(providerBaseUrl)}`);
@@ -208,7 +205,13 @@ export async function runOpenWikiAgent(
 
     return result;
   } catch (error) {
-    attachOpenRouterDebugInfo(error, debugFetchCapture.getLastFailure());
+    if (debugFetchCapture) {
+      attachOpenRouterDebugInfo(
+        error,
+        debugFetchCapture.getLastFailure(),
+        debugFetchCapture.getLastRequest(),
+      );
+    }
 
     await recordRunSafe(command, options, {
       provider,
@@ -218,7 +221,7 @@ export async function runOpenWikiAgent(
 
     throw error;
   } finally {
-    debugFetchCapture.restore();
+    debugFetchCapture?.restore();
   }
 }
 
@@ -1386,6 +1389,7 @@ function describeValueShape(value: unknown): string {
 type OpenRouterFetchCapture = {
   clearLastFailure: () => void;
   getLastFailure: () => OpenRouterFetchFailure | null;
+  getLastRequest: () => OpenRouterRequestSummary | null;
   restore: () => void;
 };
 
@@ -1397,6 +1401,7 @@ type OpenRouterFetchFailure = {
 
 type OpenRouterRequestSummary = {
   bodyBytes?: number;
+  bodyPreview?: string;
   messageChars?: number;
   messageCount?: number;
   method: string;
@@ -1419,16 +1424,19 @@ const OPENROUTER_DEBUG_BODY_LIMIT = 4_000;
 
 function installOpenRouterDebugFetch(
   options: OpenWikiRunOptions,
+  providerBaseUrl?: string,
 ): OpenRouterFetchCapture {
   const originalFetch = globalThis.fetch;
   let lastFailure: OpenRouterFetchFailure | null = null;
+  let lastRequest: OpenRouterRequestSummary | null = null;
 
   globalThis.fetch = (async (input, init) => {
-    if (!isOpenRouterFetchInput(input)) {
+    if (!isProviderChatFetchInput(input, providerBaseUrl)) {
       return originalFetch(input, init);
     }
 
     const request = summarizeOpenRouterRequest(input, init);
+    lastRequest = request;
 
     try {
       const response = await originalFetch(input, init);
@@ -1445,7 +1453,7 @@ function installOpenRouterDebugFetch(
         };
         emitDebug(
           options,
-          `openrouter.http status=${response.status} statusText=${JSON.stringify(
+          `provider.http status=${response.status} statusText=${JSON.stringify(
             response.statusText,
           )}`,
         );
@@ -1464,8 +1472,10 @@ function installOpenRouterDebugFetch(
   return {
     clearLastFailure: () => {
       lastFailure = null;
+      lastRequest = null;
     },
     getLastFailure: () => lastFailure,
+    getLastRequest: () => lastRequest,
     restore: () => {
       globalThis.fetch = originalFetch;
     },
@@ -1475,22 +1485,40 @@ function installOpenRouterDebugFetch(
 function attachOpenRouterDebugInfo(
   error: unknown,
   failure: OpenRouterFetchFailure | null,
+  request: OpenRouterRequestSummary | null = null,
 ): void {
-  if (!failure || !isRecord(error)) {
+  if (!isRecord(error)) {
     return;
   }
 
-  error[OPENROUTER_DEBUG_PROPERTY] = failure;
+  // On an HTTP failure we have the full request+response; otherwise (e.g. a
+  // "Received empty response" thrown by the model layer after a 200) we still
+  // attach the last captured request so its body is visible in diagnostics.
+  const debugInfo: OpenRouterFetchFailure | null =
+    failure ?? (request ? { request } : null);
+
+  if (!debugInfo) {
+    return;
+  }
+
+  error[OPENROUTER_DEBUG_PROPERTY] = debugInfo;
 }
 
-function isOpenRouterFetchInput(input: Parameters<typeof fetch>[0]): boolean {
+function isProviderChatFetchInput(
+  input: Parameters<typeof fetch>[0],
+  providerBaseUrl?: string,
+): boolean {
   const url = getFetchInputUrl(input);
 
-  return (
-    url !== null &&
-    url.startsWith(OPENROUTER_BASE_URL) &&
-    url.includes("/chat/completions")
-  );
+  if (url === null || !url.includes("/chat/completions")) {
+    return false;
+  }
+
+  if (url.startsWith(OPENROUTER_BASE_URL)) {
+    return true;
+  }
+
+  return providerBaseUrl !== undefined && url.startsWith(providerBaseUrl);
 }
 
 function getFetchInputUrl(input: Parameters<typeof fetch>[0]): string | null {
@@ -1515,6 +1543,8 @@ function summarizeOpenRouterRequest(
 
   return {
     bodyBytes: body === null ? undefined : Buffer.byteLength(body, "utf8"),
+    bodyPreview:
+      body === null ? undefined : sanitizeOpenRouterResponseBody(body),
     messageChars: getOpenRouterMessageChars(parsedBody?.messages),
     messageCount: Array.isArray(parsedBody?.messages)
       ? parsedBody.messages.length
@@ -1601,16 +1631,21 @@ function countMessageContentChars(content: unknown): number {
 async function readResponseBodyPreview(response: Response): Promise<string> {
   try {
     const body = await response.clone().text();
-    const sanitizedBody = sanitizeOpenRouterResponseBody(body);
 
-    return sanitizedBody.length <= OPENROUTER_DEBUG_BODY_LIMIT
-      ? sanitizedBody
-      : `${sanitizedBody.slice(0, OPENROUTER_DEBUG_BODY_LIMIT - 3)}...`;
+    return previewDebugBody(body);
   } catch (error) {
     return `Unable to read response body: ${
       error instanceof Error ? error.message : String(error)
     }`;
   }
+}
+
+function previewDebugBody(body: string): string {
+  const sanitizedBody = sanitizeOpenRouterResponseBody(body);
+
+  return sanitizedBody.length <= OPENROUTER_DEBUG_BODY_LIMIT
+    ? sanitizedBody
+    : `${sanitizedBody.slice(0, OPENROUTER_DEBUG_BODY_LIMIT - 3)}...`;
 }
 
 export function sanitizeOpenRouterResponseBody(body: string): string {

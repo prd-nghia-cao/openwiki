@@ -3433,10 +3433,43 @@ function addAttachedDebugDiagnostics(
     return;
   }
 
+  const label = prefix ? `${prefix}.openRouterDebug` : "openRouterDebug";
+  const requestBody = getDebugRequestBody(debugValue);
+
   diagnostics.push({
-    label: prefix ? `${prefix}.openRouterDebug` : "openRouterDebug",
-    value: formatDiagnosticMetadataValue(debugValue),
+    label,
+    value: formatDiagnosticMetadataValue(
+      requestBody === null ? debugValue : omitDebugRequestBody(debugValue),
+    ),
   });
+
+  if (requestBody !== null) {
+    diagnostics.push({
+      label: `${label}.request.body`,
+      value: sanitizeDiagnosticText(requestBody),
+    });
+  }
+}
+
+function getDebugRequestBody(debugValue: unknown): string | null {
+  if (!isRecord(debugValue) || !isRecord(debugValue.request)) {
+    return null;
+  }
+
+  const bodyPreview = debugValue.request.bodyPreview;
+
+  return typeof bodyPreview === "string" ? bodyPreview : null;
+}
+
+function omitDebugRequestBody(debugValue: unknown): unknown {
+  if (!isRecord(debugValue) || !isRecord(debugValue.request)) {
+    return debugValue;
+  }
+
+  const request: Record<string, unknown> = { ...debugValue.request };
+  delete request.bodyPreview;
+
+  return { ...debugValue, request };
 }
 
 function addOpenRouterMetadataDiagnostics(

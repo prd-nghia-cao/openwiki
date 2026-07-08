@@ -26,7 +26,6 @@ Conventions: local imports use `.js` specifiers; tests import from `../src/*.ts`
 ## Task 1: Constant + config field + resolver
 
 **Files:**
-
 - Modify: `src/constants.ts`
 - Test: `test/constants.test.ts`
 
@@ -236,7 +235,6 @@ git commit -m "feat: add OPENAI_COMPATIBLE_QUERY resolver"
 ## Task 2: Register key in env management + mark non-secret
 
 **Files:**
-
 - Modify: `src/env.ts`
 - Test: `test/env.test.ts`
 
@@ -328,7 +326,6 @@ git commit -m "feat: register OPENAI_COMPATIBLE_QUERY as a non-secret managed en
 ## Task 3: Inject query into the ChatOpenAI client + debug
 
 **Files:**
-
 - Modify: `src/agent/index.ts`
 
 Note: `src/agent/index.ts` has no dedicated unit test; verify via typecheck and the full suite.
@@ -348,43 +345,43 @@ In `src/agent/index.ts`, add to the `../constants.js` import block (alphabetical
 Replace the current `ChatOpenAI` branch of `createModel`:
 
 ```ts
-const baseURL = resolveProviderBaseUrl(provider);
-const defaultHeaders = resolveProviderHeaders(provider);
-const configuration =
-  baseURL || defaultHeaders
-    ? {
-        ...(baseURL ? { baseURL } : {}),
-        ...(defaultHeaders ? { defaultHeaders } : {}),
-      }
-    : undefined;
+  const baseURL = resolveProviderBaseUrl(provider);
+  const defaultHeaders = resolveProviderHeaders(provider);
+  const configuration =
+    baseURL || defaultHeaders
+      ? {
+          ...(baseURL ? { baseURL } : {}),
+          ...(defaultHeaders ? { defaultHeaders } : {}),
+        }
+      : undefined;
 
-return new ChatOpenAI({
-  apiKey: process.env[getProviderApiKeyEnvKey(provider)],
-  configuration,
-  model: modelId,
-});
+  return new ChatOpenAI({
+    apiKey: process.env[getProviderApiKeyEnvKey(provider)],
+    configuration,
+    model: modelId,
+  });
 ```
 
 with:
 
 ```ts
-const baseURL = resolveProviderBaseUrl(provider);
-const defaultHeaders = resolveProviderHeaders(provider);
-const defaultQuery = resolveProviderQuery(provider);
-const configuration =
-  baseURL || defaultHeaders || defaultQuery
-    ? {
-        ...(baseURL ? { baseURL } : {}),
-        ...(defaultHeaders ? { defaultHeaders } : {}),
-        ...(defaultQuery ? { defaultQuery } : {}),
-      }
-    : undefined;
+  const baseURL = resolveProviderBaseUrl(provider);
+  const defaultHeaders = resolveProviderHeaders(provider);
+  const defaultQuery = resolveProviderQuery(provider);
+  const configuration =
+    baseURL || defaultHeaders || defaultQuery
+      ? {
+          ...(baseURL ? { baseURL } : {}),
+          ...(defaultHeaders ? { defaultHeaders } : {}),
+          ...(defaultQuery ? { defaultQuery } : {}),
+        }
+      : undefined;
 
-return new ChatOpenAI({
-  apiKey: process.env[getProviderApiKeyEnvKey(provider)],
-  configuration,
-  model: modelId,
-});
+  return new ChatOpenAI({
+    apiKey: process.env[getProviderApiKeyEnvKey(provider)],
+    configuration,
+    model: modelId,
+  });
 ```
 
 - [ ] **Step 3: Debug line in runOpenWikiAgent**
@@ -392,22 +389,22 @@ return new ChatOpenAI({
 In `runOpenWikiAgent`, right after the existing `providerHeaders` debug block:
 
 ```ts
-const providerHeaders = resolveProviderHeaders(provider);
-if (providerHeaders) {
-  emitDebug(
-    options,
-    `provider.headers=${JSON.stringify(Object.keys(providerHeaders))}`,
-  );
-}
+  const providerHeaders = resolveProviderHeaders(provider);
+  if (providerHeaders) {
+    emitDebug(
+      options,
+      `provider.headers=${JSON.stringify(Object.keys(providerHeaders))}`,
+    );
+  }
 ```
 
 add:
 
 ```ts
-const providerQuery = resolveProviderQuery(provider);
-if (providerQuery) {
-  emitDebug(options, `provider.query=${JSON.stringify(providerQuery)}`);
-}
+  const providerQuery = resolveProviderQuery(provider);
+  if (providerQuery) {
+    emitDebug(options, `provider.query=${JSON.stringify(providerQuery)}`);
+  }
 ```
 
 - [ ] **Step 4: Full-value display in formatDebugValue**
@@ -415,13 +412,13 @@ if (providerQuery) {
 In `formatDebugValue`, extend the model/provider branch so the query key also prints its full value:
 
 ```ts
-if (
-  key === OPENWIKI_MODEL_ID_ENV_KEY ||
-  key === OPENWIKI_PROVIDER_ENV_KEY ||
-  key === OPENAI_COMPATIBLE_QUERY_ENV_KEY
-) {
-  return `set(value=${JSON.stringify(value)})`;
-}
+  if (
+    key === OPENWIKI_MODEL_ID_ENV_KEY ||
+    key === OPENWIKI_PROVIDER_ENV_KEY ||
+    key === OPENAI_COMPATIBLE_QUERY_ENV_KEY
+  ) {
+    return `set(value=${JSON.stringify(value)})`;
+  }
 ```
 
 (This replaces the existing two-key condition; keep everything else in the function unchanged. `OPENAI_COMPATIBLE_QUERY_ENV_KEY` is imported in Step 1.)
@@ -448,7 +445,6 @@ git commit -m "feat: inject OPENAI_COMPATIBLE_QUERY into openai-compatible reque
 ## Task 4: Documentation
 
 **Files:**
-
 - Modify: `README.md`
 - Modify: `openwiki/operations/credentials-and-updates.md`
 - Modify: `openwiki/cli/usage.md`

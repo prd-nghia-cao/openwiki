@@ -20,7 +20,6 @@
 - `README.md`, `openwiki/operations/credentials-and-updates.md`, `openwiki/cli/usage.md`, `openwiki/agent/workflow.md` — docs.
 
 Conventions to follow:
-
 - All local imports use `.js` specifiers (e.g. `from "../src/constants.ts"` in tests, `from "./constants.js"` in src).
 - Run tests with `pnpm test` (Vitest). Typecheck with `pnpm typecheck`.
 
@@ -29,7 +28,6 @@ Conventions to follow:
 ## Task 1: Constant + config field + validator/resolver
 
 **Files:**
-
 - Modify: `src/constants.ts`
 - Test: `test/constants.test.ts`
 
@@ -255,7 +253,6 @@ git commit -m "feat: add OPENAI_COMPATIBLE_HEADERS resolver and validation"
 ## Task 2: Register key in env management + diagnostics
 
 **Files:**
-
 - Modify: `src/env.ts`
 - Test: `test/env.test.ts`
 
@@ -337,7 +334,6 @@ git commit -m "feat: register OPENAI_COMPATIBLE_HEADERS as a managed env key"
 ## Task 3: Headers-specific diagnostic warning (avoid false quote warning)
 
 **Files:**
-
 - Modify: `src/env.ts`
 - Test: `test/env.test.ts`
 
@@ -454,7 +450,6 @@ git commit -m "feat: use JSON-validity warning for OPENAI_COMPATIBLE_HEADERS dia
 ## Task 4: Inject headers into the ChatOpenAI client + fail-fast
 
 **Files:**
-
 - Modify: `src/agent/index.ts`
 
 Note: `src/agent/index.ts` has no dedicated unit test (its logic is integration-level). This task is verified via typecheck, the full test suite, and manual reasoning. Keep changes minimal and mirror the existing `baseURL` handling.
@@ -475,37 +470,37 @@ In `src/agent/index.ts`, add to the `../constants.js` import block:
 Replace the final `ChatOpenAI` branch of `createModel` (currently lines 432-443):
 
 ```ts
-const baseURL = resolveProviderBaseUrl(provider);
+  const baseURL = resolveProviderBaseUrl(provider);
 
-return new ChatOpenAI({
-  apiKey: process.env[getProviderApiKeyEnvKey(provider)],
-  configuration: baseURL
-    ? {
-        baseURL,
-      }
-    : undefined,
-  model: modelId,
-});
+  return new ChatOpenAI({
+    apiKey: process.env[getProviderApiKeyEnvKey(provider)],
+    configuration: baseURL
+      ? {
+          baseURL,
+        }
+      : undefined,
+    model: modelId,
+  });
 ```
 
 with:
 
 ```ts
-const baseURL = resolveProviderBaseUrl(provider);
-const defaultHeaders = resolveProviderHeaders(provider);
-const configuration =
-  baseURL || defaultHeaders
-    ? {
-        ...(baseURL ? { baseURL } : {}),
-        ...(defaultHeaders ? { defaultHeaders } : {}),
-      }
-    : undefined;
+  const baseURL = resolveProviderBaseUrl(provider);
+  const defaultHeaders = resolveProviderHeaders(provider);
+  const configuration =
+    baseURL || defaultHeaders
+      ? {
+          ...(baseURL ? { baseURL } : {}),
+          ...(defaultHeaders ? { defaultHeaders } : {}),
+        }
+      : undefined;
 
-return new ChatOpenAI({
-  apiKey: process.env[getProviderApiKeyEnvKey(provider)],
-  configuration,
-  model: modelId,
-});
+  return new ChatOpenAI({
+    apiKey: process.env[getProviderApiKeyEnvKey(provider)],
+    configuration,
+    model: modelId,
+  });
 ```
 
 - [ ] **Step 3: Fail fast + debug in runOpenWikiAgent**
@@ -513,14 +508,14 @@ return new ChatOpenAI({
 In `runOpenWikiAgent`, after the `ensureProviderBaseUrl(provider);` call (currently line 92), add a resolve-and-debug block that fails fast on malformed input and logs header names only:
 
 ```ts
-ensureProviderBaseUrl(provider);
-const providerHeaders = resolveProviderHeaders(provider);
-if (providerHeaders) {
-  emitDebug(
-    options,
-    `provider.headers=${JSON.stringify(Object.keys(providerHeaders))}`,
-  );
-}
+  ensureProviderBaseUrl(provider);
+  const providerHeaders = resolveProviderHeaders(provider);
+  if (providerHeaders) {
+    emitDebug(
+      options,
+      `provider.headers=${JSON.stringify(Object.keys(providerHeaders))}`,
+    );
+  }
 ```
 
 `resolveProviderHeaders` throws on malformed input, so this runs before any model creation and surfaces the error through the normal run-failure path.
@@ -530,9 +525,9 @@ if (providerHeaders) {
 In `formatDebugValue` (around lines 1297-1325), add a branch so the headers key never prints a value preview. After the `_API_KEY` branch (line 1310-1312), add:
 
 ```ts
-if (key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY) {
-  return `set(length=${value.length})`;
-}
+  if (key === OPENAI_COMPATIBLE_HEADERS_ENV_KEY) {
+    return `set(length=${value.length})`;
+  }
 ```
 
 - [ ] **Step 5: Typecheck**
@@ -557,7 +552,6 @@ git commit -m "feat: inject OPENAI_COMPATIBLE_HEADERS into openai-compatible req
 ## Task 5: Documentation
 
 **Files:**
-
 - Modify: `README.md`
 - Modify: `openwiki/operations/credentials-and-updates.md`
 - Modify: `openwiki/cli/usage.md`
