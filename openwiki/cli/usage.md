@@ -64,9 +64,9 @@ The UI persists provider and model selection back to `~/.openwiki/.env` through 
 
 The first interactive run can prompt for:
 
-- a **provider** (`OPENWIKI_PROVIDER`) — openai, openai-chatgpt, openrouter, baseten, fireworks, nvidia, openai-compatible, anthropic, or vertex,
-- the **provider API key** (e.g. `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`) — skipped for the vertex provider, which instead prompts for a **GCP project** (`GOOGLE_CLOUD_PROJECT`, required) and a **GCP location** (`GOOGLE_CLOUD_LOCATION`, optional, defaults to `global`),
-- a **base URL** for providers that require one (the openai-compatible provider prompts for `OPENAI_COMPATIBLE_BASE_URL`),
+- a **provider** (`OPENWIKI_PROVIDER`) — openai, openai-chatgpt, openrouter, baseten, fireworks, nvidia, openai-compatible, workday-cis, anthropic, or vertex,
+- the **provider API key** (e.g. `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `WORKDAY_CIS_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`; `WORKDAY_CIS_API_KEY` is optional) — skipped for the vertex provider, which instead prompts for a **GCP project** (`GOOGLE_CLOUD_PROJECT`, required) and a **GCP location** (`GOOGLE_CLOUD_LOCATION`, optional, defaults to `global`),
+- a **base URL** for providers that require one (the openai-compatible provider prompts for `OPENAI_COMPATIBLE_BASE_URL`; the workday-cis provider prompts for `WORKDAY_CIS_BASE_URL`),
 - a **model ID** stored as `OPENWIKI_MODEL_ID` — chosen from the provider's model list or a custom ID,
 - optional `LANGSMITH_API_KEY` for tracing.
 
@@ -78,17 +78,18 @@ If a LangSmith key is provided, onboarding also enables `LANGCHAIN_PROJECT=openw
 
 Providers and their model options are defined in `PROVIDER_CONFIGS` in `src/constants.ts`:
 
-| Provider          | Env key                                             | Base URL                                       | Models                                                                                 |
-| ----------------- | --------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| openai            | `OPENAI_API_KEY`                                    | (default)                                      | 5.6 Terra, 5.6 Luna, 5.6 Sol, 5.5, 5.4 mini                                           |
-| openai-chatgpt    | `OPENAI_CHATGPT_ACCESS_TOKEN`                       | (Codex backend)                                | Same as openai (OAuth login, no API key)                                              |
-| openrouter        | `OPENROUTER_API_KEY`                                | `https://openrouter.ai/api/v1`                 | GLM 5.2, Fusion, Kimi K2.7 Code, Claude Opus/Sonnet, GPT 5.4 mini/5.5                  |
-| baseten           | `BASETEN_API_KEY`                                   | `https://inference.baseten.co/v1`              | GLM 5.2, Kimi K2.7 Code                                                                |
-| fireworks         | `FIREWORKS_API_KEY`                                 | `https://api.fireworks.ai/inference/v1`        | GLM 5.2, Kimi K2.7 Code                                                                |
-| nvidia            | `NVIDIA_API_KEY`                                    | `https://integrate.api.nvidia.com/v1`          | Nemotron 3 Super/Ultra/Nano, DeepSeek V4 Pro, GPT-OSS 120B, Kimi K2.6                  |
-| openai-compatible | `OPENAI_COMPATIBLE_API_KEY`                         | `OPENAI_COMPATIBLE_BASE_URL` (required)        | custom model ID only (optional `OPENAI_COMPATIBLE_HEADERS`, `OPENAI_COMPATIBLE_QUERY`) |
-| anthropic         | `ANTHROPIC_API_KEY`                                 | (default, or `ANTHROPIC_BASE_URL`)             | Haiku, Sonnet, Opus                                                                    |
-| vertex            | none (Google ADC) — `GOOGLE_CLOUD_PROJECT` required | per `GOOGLE_CLOUD_LOCATION` (default `global`) | Haiku, Sonnet, Opus (Claude on Vertex AI)                                             |
+| Provider          | Env key                                             | Base URL                                       | Models                                                                                                                                                                                                         |
+| ----------------- | --------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| openai            | `OPENAI_API_KEY`                                    | (default)                                      | 5.6 Terra, 5.6 Luna, 5.6 Sol, 5.5, 5.4 mini                                                                                                                                                                    |
+| openai-chatgpt    | `OPENAI_CHATGPT_ACCESS_TOKEN`                       | (Codex backend)                                | Same as openai (OAuth login, no API key)                                                                                                                                                                       |
+| openrouter        | `OPENROUTER_API_KEY`                                | `https://openrouter.ai/api/v1`                 | GLM 5.2, Fusion, Kimi K2.7 Code, Claude Opus/Sonnet, GPT 5.4 mini/5.5                                                                                                                                          |
+| baseten           | `BASETEN_API_KEY`                                   | `https://inference.baseten.co/v1`              | GLM 5.2, Kimi K2.7 Code                                                                                                                                                                                        |
+| fireworks         | `FIREWORKS_API_KEY`                                 | `https://api.fireworks.ai/inference/v1`        | GLM 5.2, Kimi K2.7 Code                                                                                                                                                                                        |
+| nvidia            | `NVIDIA_API_KEY`                                    | `https://integrate.api.nvidia.com/v1`          | Nemotron 3 Super/Ultra/Nano, DeepSeek V4 Pro, GPT-OSS 120B, Kimi K2.6                                                                                                                                          |
+| openai-compatible | `OPENAI_COMPATIBLE_API_KEY`                         | `OPENAI_COMPATIBLE_BASE_URL` (required)        | custom model ID only (optional `OPENAI_COMPATIBLE_HEADERS`, `OPENAI_COMPATIBLE_QUERY`)                                                                                                                           |
+| workday-cis       | `WORKDAY_CIS_API_KEY` (optional)                    | `WORKDAY_CIS_BASE_URL` (required)              | custom model ID only (requires `WORKDAY_CIS_TARGET_PROVIDER`; optional `WORKDAY_CIS_HEADERS`, `WORKDAY_CIS_QUERY`, `WORKDAY_CIS_TASK_TYPE`, `WORKDAY_CIS_PREDICTION_TYPE`, `WORKDAY_CIS_GENERATION_CONFIG`) |
+| anthropic         | `ANTHROPIC_API_KEY`                                 | (default, or `ANTHROPIC_BASE_URL`)             | Haiku, Sonnet, Opus                                                                                                                                                                                            |
+| vertex            | none (Google ADC) — `GOOGLE_CLOUD_PROJECT` required | per `GOOGLE_CLOUD_LOCATION` (default `global`) | Haiku, Sonnet, Opus (Claude on Vertex AI)                                                                                                                                                                      |
 
 The default provider is `openai`, and the default model is `gpt-5.6-terra`. `resolveConfiguredProvider()` picks the provider from `OPENWIKI_PROVIDER`, then falls back to the first configured provider API key in this order: OpenAI, OpenAI-compatible, OpenRouter, Anthropic, Baseten, Fireworks, NVIDIA, and finally `DEFAULT_PROVIDER`.
 
@@ -164,6 +165,44 @@ GOOGLE_CLOUD_LOCATION=global   # optional
 
 Vertex Claude model IDs may carry an `@`-versioned suffix (for example
 `claude-haiku-4-5@20251001`), which the model-ID validator accepts.
+
+### Workday CIS provider
+
+The `workday-cis` provider talks to Workday CIS `POST /v1alpha1/predictions/stream`
+(Gemini-shaped request/response over Server-Sent Events), with full function/tool
+calling support so the deep agent's tool-calling works the same as with other
+providers. It has no default endpoint, so `WORKDAY_CIS_BASE_URL` is **required**
+(the interactive setup prompts for it, and a run aborts early if it is missing).
+`WORKDAY_CIS_TARGET_PROVIDER` is also **required** (`target.provider` in the CIS
+envelope). Because the provider has no preset model list, set `OPENWIKI_MODEL_ID`
+(or pick "custom model ID" in setup) to the CIS `target.model` value.
+
+| Env var | Purpose | Default |
+|---|---|---|
+| `WORKDAY_CIS_BASE_URL` | Base URL up to `/v1alpha1` (required) | — |
+| `WORKDAY_CIS_API_KEY` | Optional bearer token | unset |
+| `WORKDAY_CIS_HEADERS` | Extra headers as a JSON object string | unset |
+| `WORKDAY_CIS_QUERY` | Raw query string appended to every call (e.g. `bypass_auth=true`) | unset |
+| `WORKDAY_CIS_TARGET_PROVIDER` | `target.provider` in the CIS envelope (required) | — |
+| `WORKDAY_CIS_TASK_TYPE` | `task.type` | `gcp-multimodal-v2` |
+| `WORKDAY_CIS_PREDICTION_TYPE` | `task.prediction_type` (omitted when unset) | unset |
+| `WORKDAY_CIS_GENERATION_CONFIG` | JSON overriding defaults `{temperature:0.2,maxOutputTokens:8192,topK:40,topP:0.95}` | unset |
+
+```bash
+OPENWIKI_PROVIDER=workday-cis
+OPENWIKI_MODEL_ID=gemini-2.5-pro
+WORKDAY_CIS_BASE_URL=https://host/ml/inference/cis/v1alpha1
+WORKDAY_CIS_TARGET_PROVIDER=google
+WORKDAY_CIS_HEADERS={"wd-pca-feature-key":"your-user"}
+WORKDAY_CIS_QUERY=bypass_auth=true
+```
+
+Optionally set `WORKDAY_CIS_HEADERS` to a JSON object of string values to send
+extra headers on every request; a malformed value aborts the run early. Optionally
+set `WORKDAY_CIS_QUERY` to a raw query string to append query parameters to every
+request (duplicate keys use the last value). `WORKDAY_CIS_API_KEY` and
+`WORKDAY_CIS_HEADERS` are masked in credential diagnostics; the other Workday CIS
+env vars are shown in full.
 
 ## Help text and validation
 

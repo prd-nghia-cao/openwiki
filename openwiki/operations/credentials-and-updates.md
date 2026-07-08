@@ -37,12 +37,13 @@ The file stores provider configuration and API keys:
 - `OPENWIKI_PROVIDER` — the selected model provider
 - `OPENWIKI_MODEL_ID` — the default model ID
 - `OPENWIKI_PROVIDER_RETRY_ATTEMPTS` — optional positive integer retry count for transient provider request failures; defaults to 3 when unset
-- Provider API keys: `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`
+- Provider API keys: `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `WORKDAY_CIS_API_KEY` (optional), `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`
 - ChatGPT OAuth tokens (for the `openai-chatgpt` provider): `OPENAI_CHATGPT_ACCESS_TOKEN`, `OPENAI_CHATGPT_REFRESH_TOKEN`, `OPENAI_CHATGPT_EXPIRES_AT`, `OPENAI_CHATGPT_ACCOUNT_ID`, `OPENAI_CHATGPT_EMAIL`, `OPENAI_CHATGPT_PLAN`
 - Connector OAuth credentials: `OPENWIKI_GMAIL_ACCESS_TOKEN`, `OPENWIKI_GMAIL_REFRESH_TOKEN`, `OPENWIKI_GOOGLE_CLIENT_ID`, `OPENWIKI_GOOGLE_CLIENT_SECRET`, `OPENWIKI_NOTION_MCP_ACCESS_TOKEN`, `OPENWIKI_NOTION_MCP_CLIENT_ID`, `OPENWIKI_NOTION_MCP_REFRESH_TOKEN`, `OPENWIKI_SLACK_USER_TOKEN`, `OPENWIKI_SLACK_CLIENT_ID`, `OPENWIKI_SLACK_CLIENT_SECRET`, `OPENWIKI_X_ACCESS_TOKEN`, `OPENWIKI_X_CLIENT_ID`, `OPENWIKI_X_CLIENT_SECRET`, `OPENWIKI_X_REFRESH_TOKEN`
-- Base URLs: `ANTHROPIC_BASE_URL` (optional — routes the anthropic provider at an Anthropic-compatible endpoint other than the default API) and `OPENAI_COMPATIBLE_BASE_URL` (required by the openai-compatible provider, which has no default endpoint)
-- Optional headers: `OPENAI_COMPATIBLE_HEADERS` (optional — a JSON object of string values injected as request headers for the openai-compatible provider; malformed values fail the run)
-- Optional query params: `OPENAI_COMPATIBLE_QUERY` (optional — a raw query string appended to every request for the openai-compatible provider; duplicate keys use the last value)
+- Base URLs: `ANTHROPIC_BASE_URL` (optional — routes the anthropic provider at an Anthropic-compatible endpoint other than the default API), `OPENAI_COMPATIBLE_BASE_URL` (required by the openai-compatible provider, which has no default endpoint), and `WORKDAY_CIS_BASE_URL` (required by the workday-cis provider, which has no default endpoint)
+- Optional headers: `OPENAI_COMPATIBLE_HEADERS` (optional — a JSON object of string values injected as request headers for the openai-compatible provider; malformed values fail the run) and `WORKDAY_CIS_HEADERS` (optional — same for the workday-cis provider)
+- Optional query params: `OPENAI_COMPATIBLE_QUERY` (optional — a raw query string appended to every request for the openai-compatible provider; duplicate keys use the last value) and `WORKDAY_CIS_QUERY` (optional — same for the workday-cis provider)
+- Workday CIS envelope settings: `WORKDAY_CIS_TARGET_PROVIDER` (required — `target.provider` in the CIS envelope), `WORKDAY_CIS_TASK_TYPE` (optional — `task.type`, defaults to `gcp-multimodal-v2`), `WORKDAY_CIS_PREDICTION_TYPE` (optional — `task.prediction_type`, omitted when unset), `WORKDAY_CIS_GENERATION_CONFIG` (optional — JSON overriding defaults `{temperature:0.2,maxOutputTokens:8192,topK:40,topP:0.95}`)
 - Connector API keys: `TAVILY_API_KEY` for Web Search
 - Google Cloud settings for the vertex provider: `GOOGLE_CLOUD_PROJECT` (required to run vertex), `GOOGLE_CLOUD_LOCATION` (optional, defaults to `global`), and `GOOGLE_APPLICATION_CREDENTIALS` (optional service-account key file path; never prompted for — Google Application Default Credentials handle auth)
 - Optional LangSmith settings: `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT`, `LANGCHAIN_TRACING_V2`
@@ -182,7 +183,33 @@ The env layer also produces diagnostics for the CLI UI. Those diagnostics report
 - invalid model IDs,
 - invalid provider values.
 
-Diagnostics cover all provider keys (including `OPENAI_CHATGPT_ACCESS_TOKEN` and related ChatGPT OAuth tokens), plus `OPENWIKI_PROVIDER`, `OPENWIKI_MODEL_ID`, `OPENWIKI_PROVIDER_RETRY_ATTEMPTS`, the base URLs (`ANTHROPIC_BASE_URL`, `OPENAI_COMPATIBLE_BASE_URL`), the optional `OPENAI_COMPATIBLE_HEADERS` (shown masked, since it may carry secrets), the optional `OPENAI_COMPATIBLE_QUERY` (shown in full), the Google Cloud settings (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS`), connector credentials, and `LANGSMITH_API_KEY`. This makes startup problems easier to diagnose without exposing secret values (non-secret values such as the provider, model ID, retry attempts, and base URLs are shown in full — the service-account key _path_ is not a secret, though the file it points to is).
+Diagnostics cover all provider keys (including `OPENAI_CHATGPT_ACCESS_TOKEN` and related ChatGPT OAuth tokens), plus `OPENWIKI_PROVIDER`, `OPENWIKI_MODEL_ID`, `OPENWIKI_PROVIDER_RETRY_ATTEMPTS`, the base URLs (`ANTHROPIC_BASE_URL`, `OPENAI_COMPATIBLE_BASE_URL`, `WORKDAY_CIS_BASE_URL`), the optional `OPENAI_COMPATIBLE_HEADERS` and `WORKDAY_CIS_HEADERS` (shown masked, since they may carry secrets), the optional `OPENAI_COMPATIBLE_QUERY` and `WORKDAY_CIS_QUERY` (shown in full), the Workday CIS envelope settings (`WORKDAY_CIS_TARGET_PROVIDER`, `WORKDAY_CIS_TASK_TYPE`, `WORKDAY_CIS_PREDICTION_TYPE`, `WORKDAY_CIS_GENERATION_CONFIG`, shown in full), the Google Cloud settings (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS`), connector credentials, and `LANGSMITH_API_KEY`. `WORKDAY_CIS_API_KEY` is masked like other API keys. This makes startup problems easier to diagnose without exposing secret values (non-secret values such as the provider, model ID, retry attempts, and base URLs are shown in full — the service-account key _path_ is not a secret, though the file it points to is).
+
+### Workday CIS environment variables
+
+The `workday-cis` provider talks to Workday CIS `POST /v1alpha1/predictions/stream` (Gemini-shaped request/response over Server-Sent Events), with full function/tool calling support. `target.model` comes from `OPENWIKI_MODEL_ID`, same as other providers.
+
+| Env var | Purpose | Default |
+|---|---|---|
+| `WORKDAY_CIS_BASE_URL` | Base URL up to `/v1alpha1` (required) | — |
+| `WORKDAY_CIS_API_KEY` | Optional bearer token | unset |
+| `WORKDAY_CIS_HEADERS` | Extra headers as a JSON object string | unset |
+| `WORKDAY_CIS_QUERY` | Raw query string appended to every call (e.g. `bypass_auth=true`) | unset |
+| `WORKDAY_CIS_TARGET_PROVIDER` | `target.provider` in the CIS envelope (required) | — |
+| `WORKDAY_CIS_TASK_TYPE` | `task.type` | `gcp-multimodal-v2` |
+| `WORKDAY_CIS_PREDICTION_TYPE` | `task.prediction_type` (omitted when unset) | unset |
+| `WORKDAY_CIS_GENERATION_CONFIG` | JSON overriding defaults `{temperature:0.2,maxOutputTokens:8192,topK:40,topP:0.95}` | unset |
+
+Example `~/.openwiki/.env`:
+
+```
+OPENWIKI_PROVIDER=workday-cis
+OPENWIKI_MODEL_ID=gemini-2.5-pro
+WORKDAY_CIS_BASE_URL=https://host/ml/inference/cis/v1alpha1
+WORKDAY_CIS_TARGET_PROVIDER=google
+WORKDAY_CIS_HEADERS={"wd-pca-feature-key":"your-user"}
+WORKDAY_CIS_QUERY=bypass_auth=true
+```
 
 ## Update metadata
 

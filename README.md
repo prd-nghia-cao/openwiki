@@ -219,7 +219,7 @@ notes.
 
 ## Customizing
 
-OpenWiki supports OpenAI (with an API key or a ChatGPT login), OpenRouter, Gemini (AI Studio), Gemini Enterprise (Vertex AI), Nebius Token Factory, Fireworks, Baseten, NVIDIA NIM, an OpenAI-compatible provider, AWS Bedrock, and Anthropic out of the box. The onboarding default is OpenAI with `gpt-5.6-terra`, and each inference provider also includes pre-defined model options plus support for custom model IDs.
+OpenWiki supports OpenAI (with an API key or a ChatGPT login), OpenRouter, Gemini (AI Studio), Gemini Enterprise (Vertex AI), Nebius Token Factory, Fireworks, Baseten, NVIDIA NIM, an OpenAI-compatible provider, Workday CIS, AWS Bedrock, and Anthropic out of the box. The onboarding default is OpenAI with `gpt-5.6-terra`, and each inference provider also includes pre-defined model options plus support for custom model IDs.
 
 ### Alternative base URLs
 
@@ -413,6 +413,30 @@ For CI, authenticate before the update job runs — for example with
 (workload identity federation) in GitHub Actions — and set
 `OPENWIKI_PROVIDER=gemini-enterprise` and `GOOGLE_CLOUD_PROJECT` in the job
 environment.
+
+### Workday CIS
+
+The `workday-cis` provider talks to Workday CIS `POST /v1alpha1/predictions/stream`
+(Gemini-shaped request/response over Server-Sent Events), with full function/tool
+calling support so the deep agent's tool-calling works the same as with other
+providers. Set `OPENWIKI_MODEL_ID` to the CIS `target.model` (for example
+`gemini-2.5-pro`):
+
+```bash
+OPENWIKI_PROVIDER=workday-cis
+OPENWIKI_MODEL_ID=gemini-2.5-pro
+WORKDAY_CIS_BASE_URL=https://host/ml/inference/cis/v1alpha1
+WORKDAY_CIS_TARGET_PROVIDER=google
+WORKDAY_CIS_HEADERS={"wd-pca-feature-key":"your-user"}
+WORKDAY_CIS_QUERY=bypass_auth=true
+```
+
+`WORKDAY_CIS_BASE_URL` is required (base URL up to `/v1alpha1`).
+`WORKDAY_CIS_TARGET_PROVIDER` is required (`target.provider` in the CIS envelope).
+`WORKDAY_CIS_API_KEY` is optional (bearer token). `WORKDAY_CIS_HEADERS` is optional;
+when set, it must be a JSON object of string values sent on every request. Invalid
+JSON causes the run to fail with a clear error. `WORKDAY_CIS_QUERY` is optional; when
+set, it is a raw query string (e.g. `bypass_auth=true`) appended to every request.
 
 Base URLs (and all credentials) can be set in your environment or stored in `~/.openwiki/.env`.
 
