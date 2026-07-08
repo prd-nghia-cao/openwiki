@@ -7,7 +7,10 @@ import {
 } from "@langchain/core/messages";
 import {
   buildCisRequest,
+  cisChunkToGeneration,
   messagesToGeminiContents,
+  parseSseEvent,
+  splitSseEvents,
   toGeminiFunctionDeclarations,
 } from "../src/agent/workday-cis-protocol.ts";
 
@@ -116,5 +119,57 @@ describe("buildCisRequest", () => {
     );
 
     expect(request.task.prediction_type).toBe("text");
+  });
+});
+
+describe("splitSseEvents", () => {
+  test("splits complete events and keeps the incomplete remainder", () => {
+    const { events, rest } = splitSseEvents("event: a\ndata: 1\n\ndata: 2\n\ndata: par");
+
+    expect(events).toEqual(["event: a\ndata: 1", "data: 2"]);
+    expect(rest).toBe("data: par");
+  });
+});
+
+describe("parseSseEvent", () => {
+  test("parses event type and joins data lines, stripping one leading space", () => {
+    expect(parseSseEvent("event: error\ndata: boom")).toEqual({
+      event: "error",
+      data: "boom",
+    });
+    expect(parseSseEvent("data: line1\ndata: line2")).toEqual({
+      event: "message",
+      data: "line1\nline2",
+    });
+  });
+});
+
+describe("cisChunkToGeneration", () => {
+  test("maps text parts to a chunk", () => {
+    const chunk = cisChunkToGeneration({
+      output: { candidates: [{ content: { parts: [{ text: "Hello" }] } }] },
+    });
+
+    expect(chunk?.text).toBe("Hello");
+  });
+
+  test("maps functionCall parts to tool_call_chunks with stringified args", () => {
+    const chunk = cisChunkToGeneration({
+      output: {
+        candidates: [
+          { content: { parts: [{ functionCall: { name: "ls", args: { path: "." } } }] } },
+        ],
+      },
+    });
+
+    const toolCallChunks = chunk?.message.tool_call_chunks ?? [];
+    expect(toolCallChunks[0]?.name).toBe("ls");
+    expect(toolCallChunks[0]?.args).toBe('{"path":"."}');
+    expect(toolCallChunks[0]?.index).toBe(0);
+  });
+
+  test("returns null for empty payloads", () => {
+    expect(cisChunkToGeneration({ output: { candidates: [] } })).toBeNull();
+    expect(cisChunkToGeneration({})).toBeNull();
   });
 });

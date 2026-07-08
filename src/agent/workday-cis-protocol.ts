@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
 import {
   AIMessage,
+  AIMessageChunk,
   ToolMessage,
   type BaseMessage,
   type MessageContent,
 } from "@langchain/core/messages";
+import { ChatGenerationChunk } from "@langchain/core/outputs";
 import { toJsonSchema } from "@langchain/core/utils/json_schema";
 
 export type GeminiPart =
@@ -262,4 +265,149 @@ export function buildCisRequest(
     target: { provider: config.targetProvider, model: config.model },
     task,
   };
+}
+
+export function splitSseEvents(buffer: string): {
+  events: string[];
+  rest: string;
+} {
+  const events: string[] = [];
+  let rest = buffer;
+  let index = rest.indexOf("\n\n");
+
+  while (index !== -1) {
+    events.push(rest.slice(0, index));
+    rest = rest.slice(index + 2);
+    index = rest.indexOf("\n\n");
+  }
+
+  return { events, rest };
+}
+
+export function parseSseEvent(raw: string): { event: string; data: string } {
+  let event = "message";
+  const dataLines: string[] = [];
+
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("event:")) {
+      event = line.slice("event:".length).trim();
+    } else if (line.startsWith("data:")) {
+      dataLines.push(line.slice("data:".length).replace(/^ /u, ""));
+    }
+  }
+
+  return { event, data: dataLines.join("\n") };
+}
+
+type GeminiUsageMetadata = {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+};
+
+function mapUsage(usage: unknown):
+  | { input_tokens: number; output_tokens: number; total_tokens: number }
+  | undefined {
+  if (typeof usage !== "object" || usage === null) {
+    return undefined;
+  }
+
+  const meta = usage as GeminiUsageMetadata;
+
+  return {
+    input_tokens: meta.promptTokenCount ?? 0,
+    output_tokens: meta.candidatesTokenCount ?? 0,
+    total_tokens: meta.totalTokenCount ?? 0,
+  };
+}
+
+export function cisChunkToGeneration(payload: unknown): ChatGenerationChunk | null {
+  if (typeof payload !== "object" || payload === null) {
+    return null;
+  }
+
+  const output = (payload as { output?: unknown }).output;
+
+  if (typeof output !== "object" || output === null) {
+    return null;
+  }
+
+  const candidates =
+    (output as { candidates?: unknown[] }).candidates ?? [];
+
+  let text = "";
+  const toolCallChunks: {
+    type: "tool_call_chunk";
+    name: string;
+    args: string;
+    id: string;
+    index: number;
+  }[] = [];
+  let index = 0;
+  let finishReason: string | undefined;
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "object" || candidate === null) {
+      continue;
+    }
+
+    const candidateFinish = (candidate as { finishReason?: string }).finishReason;
+
+    if (candidateFinish) {
+      finishReason = candidateFinish;
+    }
+
+    const parts =
+      (candidate as { content?: { parts?: unknown[] } }).content?.parts ?? [];
+
+    for (const part of parts) {
+      if (typeof part !== "object" || part === null) {
+        continue;
+      }
+
+      const partText = (part as { text?: unknown }).text;
+
+      if (typeof partText === "string") {
+        text += partText;
+
+        continue;
+      }
+
+      const functionCall = (part as {
+        functionCall?: { name?: string; args?: Record<string, unknown> };
+      }).functionCall;
+
+      if (functionCall?.name) {
+        toolCallChunks.push({
+          type: "tool_call_chunk",
+          name: functionCall.name,
+          args: JSON.stringify(functionCall.args ?? {}),
+          id: randomUUID(),
+          index: index++,
+        });
+      }
+    }
+  }
+
+  const usageMetadata = mapUsage(
+    (output as { usageMetadata?: unknown }).usageMetadata,
+  );
+
+  if (
+    text.length === 0 &&
+    toolCallChunks.length === 0 &&
+    !usageMetadata &&
+    !finishReason
+  ) {
+    return null;
+  }
+
+  const message = new AIMessageChunk({
+    content: text,
+    tool_call_chunks: toolCallChunks,
+    ...(usageMetadata ? { usage_metadata: usageMetadata } : {}),
+    response_metadata: finishReason ? { finishReason } : {},
+  });
+
+  return new ChatGenerationChunk({ message, text });
 }
