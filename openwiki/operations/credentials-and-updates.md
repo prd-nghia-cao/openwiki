@@ -187,7 +187,12 @@ Diagnostics cover all provider keys (including `OPENAI_CHATGPT_ACCESS_TOKEN` and
 
 ### Workday CIS environment variables
 
-The `workday-cis` provider talks to Workday CIS `POST /v1alpha1/predictions/stream` (Gemini-shaped request/response over Server-Sent Events), with full function/tool calling support. `target.model` comes from `OPENWIKI_MODEL_ID`, same as other providers.
+The `workday-cis` provider talks to Workday CIS `POST /v1alpha1/predictions/stream` over Server-Sent Events, with full function/tool calling support. `target.model` comes from `OPENWIKI_MODEL_ID`, same as other providers.
+
+The request/response shape is selected by `WORKDAY_CIS_TASK_TYPE` (the "dialect"):
+
+- **Gemini shape** (default, e.g. `gcp-multimodal-v2`): `task.input.contents` / `generationConfig`, response `candidates[].content.parts[]`. Use for GCP/Vertex targets.
+- **Bedrock Converse shape** (`aws-converse-v1`, or any task type starting with `aws` or containing `converse`): `task.input.messages` / `system` / `inferenceConfig` / `toolConfig`, response Converse stream events (`contentBlockDelta`, `contentBlockStart` toolUse, `messageStop`, `metadata.usage`). Use for AWS Bedrock targets (e.g. `target.provider=aws`, `anthropic.claude-*` models). `generationConfig` is translated to `inferenceConfig` (`maxOutputTokens`→`maxTokens`; `topK` is dropped, as Converse `inferenceConfig` has no equivalent).
 
 | Env var | Purpose | Default |
 |---|---|---|
@@ -207,6 +212,18 @@ OPENWIKI_PROVIDER=workday-cis
 OPENWIKI_MODEL_ID=gemini-2.5-pro
 WORKDAY_CIS_BASE_URL=https://host/ml/inference/cis/v1alpha1
 WORKDAY_CIS_TARGET_PROVIDER=google
+WORKDAY_CIS_HEADERS={"wd-pca-feature-key":"your-user"}
+WORKDAY_CIS_QUERY=bypass_auth=true
+```
+
+Example `~/.openwiki/.env` for an AWS Bedrock (Converse) target:
+
+```
+OPENWIKI_PROVIDER=workday-cis
+OPENWIKI_MODEL_ID=anthropic.claude-opus-4-7
+WORKDAY_CIS_BASE_URL=https://host/ml/inference/cis/v1alpha1
+WORKDAY_CIS_TARGET_PROVIDER=aws
+WORKDAY_CIS_TASK_TYPE=aws-converse-v1
 WORKDAY_CIS_HEADERS={"wd-pca-feature-key":"your-user"}
 WORKDAY_CIS_QUERY=bypass_auth=true
 ```

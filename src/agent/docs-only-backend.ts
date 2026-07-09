@@ -1,9 +1,6 @@
-import {
-  LocalShellBackend,
-  type EditResult,
-  type LocalShellBackendOptions,
-  type WriteResult,
-} from "deepagents";
+import type { EditResult, WriteResult } from "deepagents";
+import { SafeLocalShellBackend } from "./backend.js";
+import type { LocalShellBackendOptions } from "deepagents";
 import { OPEN_WIKI_DIR } from "../constants.js";
 import type { OpenWikiOutputMode } from "./types.js";
 
@@ -14,7 +11,7 @@ type OpenWikiBackendOptions = LocalShellBackendOptions & {
   outputMode?: OpenWikiOutputMode;
 };
 
-export class OpenWikiLocalShellBackend extends LocalShellBackend {
+export class OpenWikiLocalShellBackend extends SafeLocalShellBackend {
   private readonly docsOnly: boolean;
   private readonly outputMode: OpenWikiOutputMode;
 

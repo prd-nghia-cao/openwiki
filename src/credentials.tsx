@@ -32,6 +32,7 @@ import {
   OPENWIKI_PROVIDER_ENV_KEY,
   OPENWIKI_TAVILY_API_KEY_ENV_KEY,
   OPENWIKI_X_CLIENT_ID_ENV_KEY,
+  WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY,
   type OpenWikiProvider,
   providerRequiresBaseUrl,
   providerRequiresRegion,
@@ -93,6 +94,7 @@ export type InitSetupResult = {
   savedProvider: boolean;
   savedRegion: boolean;
   savedSecretKey: boolean;
+  savedTargetProvider: boolean;
   shouldContinueToRun: boolean;
 };
 
@@ -125,6 +127,7 @@ type PromptStep =
   | "region"
   | "run-mode"
   | "secret-key"
+  | "target-provider"
   | "source-auth"
   | "global-cron-custom"
   | "global-cron-mode"
@@ -388,6 +391,7 @@ export function needsCredentialSetup(
     !hasValidConfiguredProvider() ||
     needsCredentialStep(provider) ||
     needsSecretKeyStep(provider) ||
+    needsTargetProviderStep(provider) ||
     needsBaseUrlStep(provider) ||
     needsRegionStep(provider) ||
     (modelIdOverride === null &&
@@ -439,6 +443,7 @@ function getWizardManagedEnvKeys(provider: OpenWikiProvider): string[] {
     getProviderProjectEnvKey(provider),
     getProviderLocationEnvKey(provider),
     getProviderBaseUrlEnvKey(provider),
+    provider === "workday-cis" ? WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY : undefined,
     getProviderRegionEnvKey(provider),
     OPENWIKI_MODEL_ID_ENV_KEY,
     "LANGSMITH_API_KEY",
@@ -480,6 +485,9 @@ export function orderedSetupSteps(
     getProviderLocationEnvKey(provider)
   ) {
     steps.push("gcp-location");
+  }
+  if (provider === "workday-cis") {
+    steps.push("target-provider");
   }
   if (providerRequiresBaseUrl(provider)) {
     steps.push("base-url");
@@ -573,6 +581,13 @@ function isRegionConfigured(provider: OpenWikiProvider): boolean {
   const regionEnvKey = getProviderRegionEnvKey(provider);
 
   return regionEnvKey ? Boolean(process.env[regionEnvKey]) : false;
+}
+
+function needsTargetProviderStep(provider: OpenWikiProvider): boolean {
+  return (
+    provider === "workday-cis" &&
+    !process.env[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY]?.trim()
+  );
 }
 
 function isCredentialConfigured(provider: OpenWikiProvider): boolean {
@@ -674,6 +689,7 @@ export function InitSetup({
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [secretKey, setSecretKey] = useState<string | null>(null);
   const [region, setRegion] = useState<string | null>(null);
+  const [targetProvider, setTargetProvider] = useState<string | null>(null);
   const [gcpProject, setGcpProject] = useState<string | null>(null);
   const [gcpLocation, setGcpLocation] = useState<string | null>(null);
   const [modelId, setModelId] = useState<string | null>(null);
@@ -996,6 +1012,13 @@ export function InitSetup({
         setInput(baseUrl ?? (envKey ? (getSavedEnvValue(envKey) ?? "") : ""));
         break;
       }
+      case "target-provider":
+        setInput(
+          targetProvider ??
+            getSavedEnvValue(WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY) ??
+            "",
+        );
+        break;
       case "region": {
         const envKey = getProviderRegionEnvKey(provider);
         setInput(region ?? (envKey ? (getSavedEnvValue(envKey) ?? "") : ""));
@@ -1096,6 +1119,9 @@ export function InitSetup({
         break;
       case "base-url":
         if (trimmed) setBaseUrl(trimmed);
+        break;
+      case "target-provider":
+        if (trimmed) setTargetProvider(trimmed);
         break;
       case "region":
         if (trimmed) setRegion(trimmed);
@@ -1455,6 +1481,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
         runMode: selectedOption.id,
       });
       return;
@@ -1565,6 +1592,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: selectedProvider,
+        nextTargetProvider: targetProvider,
         runMode: selectedMode,
       });
       return;
@@ -1617,6 +1645,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
         runMode: selectedMode,
       });
       return;
@@ -1673,6 +1702,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
         runMode: selectedMode,
       });
       return;
@@ -1720,6 +1750,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
         runMode: selectedMode,
       });
       return;
@@ -1798,6 +1829,58 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
+        runMode: selectedMode,
+      });
+      return;
+    }
+
+    if (step === "target-provider") {
+      const trimmedInput = input.trim();
+
+      if (trimmedInput.length === 0) {
+        setError(`${WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY} is required.`);
+        return;
+      }
+
+      setTargetProvider(trimmedInput);
+      setInput("");
+      const nextStep =
+        nextSetupStep(
+          "target-provider",
+          provider,
+          selectedMode,
+          allowModeSelection,
+        ) ??
+        getNextStepAfterTargetProvider(
+          provider,
+          modelIdOverride,
+          onboardingConfig,
+          selectedMode,
+          forceModelStep,
+        );
+
+      if (nextStep) {
+        setIsCustomModelInput(
+          nextStep === "model" && shouldStartWithCustomModelInput(provider),
+        );
+        seedInputForStep(nextStep);
+        setStep(nextStep);
+        return;
+      }
+
+      await completeSetup({
+        nextApiKey: apiKey,
+        nextBaseUrl: baseUrl,
+        nextSecretKey: secretKey,
+        nextRegion: region,
+        nextGcpLocation: gcpLocation,
+        nextGcpProject: gcpProject,
+        nextLangSmithKey: langSmithKey,
+        nextModelId: modelId,
+        nextOAuthTokens: oauthTokens,
+        nextProvider: provider,
+        nextTargetProvider: trimmedInput,
         runMode: selectedMode,
       });
       return;
@@ -1854,6 +1937,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
         runMode: selectedMode,
       });
       return;
@@ -1906,6 +1990,7 @@ export function InitSetup({
         nextModelId: modelId,
         nextOAuthTokens: oauthTokens,
         nextProvider: provider,
+        nextTargetProvider: targetProvider,
         runMode: selectedMode,
       });
       return;
@@ -2228,6 +2313,7 @@ export function InitSetup({
     nextProvider: OpenWikiProvider;
     nextRegion: string | null;
     nextSecretKey: string | null;
+    nextTargetProvider?: string | null;
     runMode: OpenWikiRunMode;
   };
 
@@ -2327,6 +2413,7 @@ export function InitSetup({
       savedBaseUrl: options.nextBaseUrl !== null,
       savedRegion: options.nextRegion !== null,
       savedSecretKey: options.nextSecretKey !== null,
+      savedTargetProvider: (options.nextTargetProvider ?? null) !== null,
       savedGcpLocation: options.nextGcpLocation !== null,
       savedGcpProject: options.nextGcpProject !== null,
       savedLangSmithKey:
@@ -2350,6 +2437,7 @@ export function InitSetup({
     nextProvider,
     nextRegion,
     nextSecretKey,
+    nextTargetProvider = null,
   }: CompleteSetupOptions) {
     setIsSaving(true);
 
@@ -2394,6 +2482,10 @@ export function InitSetup({
         if (regionEnvKey) {
           updates[regionEnvKey] = nextRegion;
         }
+      }
+
+      if (nextTargetProvider !== null && nextProvider === "workday-cis") {
+        updates[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY] = nextTargetProvider;
       }
 
       if (nextGcpProject !== null) {
@@ -2675,6 +2767,7 @@ export function InitSetup({
     !hasValidConfiguredProvider() ||
     needsCredentialStep(provider) ||
     needsSecretKeyStep(provider) ||
+    needsTargetProviderStep(provider) ||
     needsBaseUrlStep(provider) ||
     needsRegionStep(provider) ||
     (modelIdOverride === null &&
@@ -2813,6 +2906,25 @@ export function InitSetup({
                 (process.env[locationEnvKey]
                   ? "configured"
                   : `default ${DEFAULT_VERTEX_LOCATION}`)
+              }
+            />
+          ) : null}
+          {provider === "workday-cis" ? (
+            <SetupStep
+              label="CIS target provider"
+              state={resolveStepStatus(
+                "target-provider",
+                step,
+                targetProvider !== null ||
+                  Boolean(
+                    process.env[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY]?.trim(),
+                  ),
+              )}
+              detail={
+                targetProvider ??
+                (process.env[WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY]?.trim()
+                  ? "configured"
+                  : "not set")
               }
             />
           ) : null}
@@ -3172,6 +3284,22 @@ function Prompt({
           For example global, europe-west1, or us-east5. Press Enter to
           continue.
         </Text>
+      </Box>
+    );
+  }
+
+  if (step === "target-provider") {
+    return (
+      <Box flexDirection="column">
+        <Text>
+          Enter the CIS target provider (e.g. the value CIS expects in
+          target.provider).
+        </Text>
+        <Text>
+          <Text color="gray">$</Text> {WORKDAY_CIS_TARGET_PROVIDER_ENV_KEY}={" "}
+          <Text color="yellow">{input}</Text>
+        </Text>
+        <Text color="gray">Press Enter to save it.</Text>
       </Box>
     );
   }
@@ -4111,6 +4239,10 @@ export function getInitialStep(
     return "gcp-project";
   }
 
+  if (needsTargetProviderStep(provider)) {
+    return "target-provider";
+  }
+
   if (needsBaseUrlStep(provider)) {
     return "base-url";
   }
@@ -4218,6 +4350,26 @@ function getNextStepAfterGcpLocation(
   modelIdOverride: string | null,
   onboardingConfig: OpenWikiOnboardingConfig = createEmptyOnboardingConfig(),
   mode: OpenWikiRunMode = "code",
+  forceModelStep = false,
+): PromptStep | null {
+  if (needsTargetProviderStep(provider)) {
+    return "target-provider";
+  }
+
+  return getNextStepAfterTargetProvider(
+    provider,
+    modelIdOverride,
+    onboardingConfig,
+    mode,
+    forceModelStep,
+  );
+}
+
+function getNextStepAfterTargetProvider(
+  provider: OpenWikiProvider,
+  modelIdOverride: string | null,
+  onboardingConfig: OpenWikiOnboardingConfig,
+  mode: OpenWikiRunMode,
   forceModelStep = false,
 ): PromptStep | null {
   if (needsBaseUrlStep(provider)) {

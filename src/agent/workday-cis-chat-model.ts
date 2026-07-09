@@ -15,9 +15,12 @@ import type { Runnable } from "@langchain/core/runnables";
 import {
   buildCisRequest,
   cisChunkToGeneration,
+  converseChunkToGeneration,
   parseSseEvent,
+  resolveCisDialect,
   splitSseEvents,
   toGeminiFunctionDeclarations,
+  type CisDialect,
   type GeminiFunctionDeclaration,
 } from "./workday-cis-protocol.js";
 
@@ -48,6 +51,7 @@ export class ChatWorkdayCis extends BaseChatModel<ChatWorkdayCisCallOptions> {
   taskType: string;
   predictionType: string | undefined;
   generationConfig: Record<string, unknown>;
+  private readonly dialect: CisDialect;
   private readonly fetchImpl: typeof fetch;
 
   constructor(params: ChatWorkdayCisParams) {
@@ -61,6 +65,7 @@ export class ChatWorkdayCis extends BaseChatModel<ChatWorkdayCisCallOptions> {
     this.taskType = params.taskType;
     this.predictionType = params.predictionType;
     this.generationConfig = params.generationConfig;
+    this.dialect = resolveCisDialect(params.taskType);
     this.fetchImpl = params.fetchImpl ?? ((...args) => fetch(...args));
   }
 
@@ -162,7 +167,9 @@ export class ChatWorkdayCis extends BaseChatModel<ChatWorkdayCisCallOptions> {
         return null;
       }
 
-      return cisChunkToGeneration(payload);
+      return this.dialect === "converse"
+        ? converseChunkToGeneration(payload)
+        : cisChunkToGeneration(payload);
     };
 
     const processRawEvents = async function* (

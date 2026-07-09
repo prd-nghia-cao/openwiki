@@ -53,6 +53,9 @@ importers:
       deepagents:
         specifier: ^1.11.1
         version: 1.11.1(258c1430434a32ce8e1dc2c77a7040b8)
+      fast-glob:
+        specifier: ^3.3.3
+        version: 3.3.3
       google-auth-library:
         specifier: ^10.9.0
         version: 10.9.0

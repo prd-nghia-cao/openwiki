@@ -1228,8 +1228,9 @@ import {
   BaseChatModel,
   type BaseChatModelCallOptions,
   type BaseChatModelParams,
+  type BindToolsInput,
 } from "@langchain/core/language_models/chat_models";
-import type { BindToolsInput } from "@langchain/core/language_models/base";
+import type { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
 import { AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
 import {
@@ -1296,8 +1297,8 @@ export class ChatWorkdayCis extends BaseChatModel<ChatWorkdayCisCallOptions> {
   override bindTools(
     tools: BindToolsInput[],
     kwargs?: Partial<ChatWorkdayCisCallOptions>,
-  ): Runnable<BaseMessage[], AIMessageChunk, ChatWorkdayCisCallOptions> {
-    return this.bind({
+  ): Runnable<BaseLanguageModelInput, AIMessageChunk, ChatWorkdayCisCallOptions> {
+    return this.withConfig({
       cisFunctionDeclarations: toGeminiFunctionDeclarations(
         tools as Parameters<typeof toGeminiFunctionDeclarations>[0],
       ),
@@ -1453,7 +1454,9 @@ export class ChatWorkdayCis extends BaseChatModel<ChatWorkdayCisCallOptions> {
 Run: `pnpm vitest run test/workday-cis-chat-model.test.ts && pnpm typecheck`
 Expected: PASS.
 
-If typecheck flags the `bindTools` return type, adjust the `Runnable<...>` generic parameters to satisfy the compiler (the runtime behavior — merging `cisFunctionDeclarations` into call options via `this.bind`) is what matters.
+Note: `this.withConfig(...)` is the correct mechanism here (this is what `ChatOpenAI.bindTools` itself uses internally in this LangChain version to merge custom call options like `tools` onto the bound runnable) — `Runnable.bind()` does NOT exist in `@langchain/core@1.2.1`, only `withConfig()`. Do not use `.bind()`.
+
+If typecheck flags the `bindTools` return type or the `BaseLanguageModelInput` type import, adjust the generics/imports to satisfy the compiler — the runtime behavior (merging `cisFunctionDeclarations` into call options via `this.withConfig`) is what matters.
 
 - [ ] **Step 5: Commit**
 
